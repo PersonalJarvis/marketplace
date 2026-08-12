@@ -1,0 +1,40 @@
+# The publishing decision. pull_request_target runs the BASE branch's code
+# with a write token — safe because the gate script never checks out or
+# executes anything from the PR; it downloads the single submission file as
+# data, validates it with the trusted validator, checks ownership, and
+# merges when everything holds. PRs that do not qualify stay open for
+# maintainer review with an explanatory comment.
+name: automerge
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      # Base branch only — the PR's code is never checked out here.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Gate and merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python scripts/automerge_gate.py

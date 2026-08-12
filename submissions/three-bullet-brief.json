@@ -1,0 +1,10 @@
+{
+  "kind": "skill",
+  "name": "three-bullet-brief",
+  "publisher": "rubenluetke10-beep",
+  "version": "1.0.0",
+  "title": "Three Bullet Brief",
+  "description": "Turns any topic, text, or document into exactly three crisp bullets plus a one-line takeaway.",
+  "categories": ["productivity", "writing"],
+  "skill_md": "---\nschema_version: \"1\"\nname: three-bullet-brief\nversion: \"1.0.0\"\ndescription: >-\n  Turns any topic, text, or document into exactly three crisp bullets plus\n  a one-line takeaway. Use when the user asks for a brief, a TLDR, a quick\n  summary, or \"give me the short version\".\nwhen_to_use: >-\n  Use when the user asks for a brief, a summary in bullets, a TLDR, or the\n  short version of a topic, message, article, or document.\ncategory: productivity\ntags: [summary, brief, writing]\nauthor: rubenluetke10-beep\nlicense: MIT\n---\n\n# Three Bullet Brief\n\nWhen this skill runs, produce EXACTLY this shape — no more, no less:\n\n1. Three bullets, each a single complete sentence of at most 20 words.\n2. Each bullet carries ONE distinct point: what it is, why it matters,\n   what to do next.\n3. A final line starting with `Takeaway:` — one sentence, the single thing\n   to remember.\n\nRules:\n- Never add headers, greetings, or closing remarks around the brief.\n- If the source material is too thin for three distinct points, say which\n  point is missing instead of padding.\n- Keep the user's language: answer in the language they asked in.\n"
+}

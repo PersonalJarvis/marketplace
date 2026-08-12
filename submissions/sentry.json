@@ -1,0 +1,38 @@
+{
+  "kind": "plugin",
+  "name": "sentry",
+  "publisher": "rubenluetke10-beep",
+  "version": "1.0.0",
+  "plugin_json": {
+    "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+    "name": "sentry",
+    "description": "Errors, issues, releases and performance data from your Sentry projects",
+    "version": "1.0.0",
+    "license": "MIT",
+    "extensions": {
+      "io.github.personaljarvis": {
+        "display_name": "Sentry",
+        "category": "Developer",
+        "logo_slug": "sentry",
+        "logo_color": "362D59",
+        "longevity": "self_renewing",
+        "auth": {
+          "mode": "hosted_mcp_oauth_dcr",
+          "discovery_url": "https://mcp.sentry.dev/.well-known/oauth-authorization-server",
+          "mcp_url": "https://mcp.sentry.dev/mcp",
+          "refresh_supported": true
+        }
+      }
+    }
+  },
+  "mcp_json": {
+    "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+    "mcpServers": {
+      "sentry": {
+        "type": "streamable-http",
+        "url": "https://mcp.sentry.dev/mcp"
+      }
+    }
+  },
+  "usage_card": "---\nkeywords: sentry, error, errors, crash, exception, stacktrace, issue tracker, release health  # i18n-allow\n---\nUse the Sentry tools when the user asks about application errors, crashes, exceptions, issue triage, or release health in their Sentry projects. Prefer read operations (list issues, get event details) unless the user explicitly asks to resolve or assign an issue.\n"
+}

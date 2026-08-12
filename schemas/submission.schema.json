@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personaljarvis.github.io/marketplace/schemas/submission.schema.json",
+  "title": "Personal Jarvis Marketplace submission",
+  "type": "object",
+  "required": ["kind", "name", "publisher", "version"],
+  "properties": {
+    "kind": { "enum": ["plugin", "skill"] },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$",
+      "description": "Agent Plugins v1.0.0 name: 1-64 chars, a-z 0-9 - . only, no '--' or '..'"
+    },
+    "publisher": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$",
+      "description": "Your GitHub username — must match the PR author for auto-merge"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "SemVer; must strictly increase on updates"
+    },
+    "plugin_json": {
+      "type": "object",
+      "description": "kind=plugin: the Agent Plugins v1.0.0 plugin.json, Jarvis specifics under extensions['io.github.personaljarvis']"
+    },
+    "mcp_json": {
+      "type": ["object", "null"],
+      "description": "kind=plugin: optional mcp.json with exactly one streamable-http or pinned stdio server; never credentials"
+    },
+    "usage_card": {
+      "type": ["string", "null"],
+      "description": "kind=plugin: optional markdown card (frontmatter 'keywords:' line + guidance prose)"
+    },
+    "title": { "type": "string", "description": "kind=skill: display title" },
+    "description": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "kind=skill: what the skill does"
+    },
+    "categories": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "kind=skill: free-form category tags"
+    },
+    "skill_md": {
+      "type": "string",
+      "description": "kind=skill: the complete SKILL.md (YAML frontmatter + instructions)"
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "plugin" } } },
+      "then": { "required": ["plugin_json"] }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "skill" } } },
+      "then": { "required": ["title", "description", "skill_md"] }
+    }
+  ]
+}

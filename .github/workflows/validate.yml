@@ -1,0 +1,32 @@
+# Contributor-visible validation on every PR. This run executes the PR's own
+# code (standard pull_request semantics, read-only token, no secrets) so the
+# author gets a red/green check; the AUTHORITATIVE gate that decides the
+# auto-merge runs separately from trusted base-branch code (automerge.yml).
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate submissions
+        run: |
+          if [ -n "${GITHUB_BASE_REF}" ]; then
+            git fetch origin "${GITHUB_BASE_REF}"
+            python scripts/validate.py --base-ref "origin/${GITHUB_BASE_REF}"
+          else
+            python scripts/validate.py
+          fi

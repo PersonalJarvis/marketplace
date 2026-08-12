@@ -1,0 +1,22 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "description": "Errors, issues, releases and performance data from your Sentry projects",
+  "extensions": {
+    "io.github.personaljarvis": {
+      "auth": {
+        "discovery_url": "https://mcp.sentry.dev/.well-known/oauth-authorization-server",
+        "mcp_url": "https://mcp.sentry.dev/mcp",
+        "mode": "hosted_mcp_oauth_dcr",
+        "refresh_supported": true
+      },
+      "category": "Developer",
+      "display_name": "Sentry",
+      "logo_color": "362D59",
+      "logo_slug": "sentry",
+      "longevity": "self_renewing"
+    }
+  },
+  "license": "MIT",
+  "name": "sentry",
+  "version": "1.0.0"
+}

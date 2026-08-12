@@ -1,0 +1,49 @@
+# On every push to main: expand merged submissions into the published
+# package layout, commit that expansion, compile index.json, and deploy it
+# to GitHub Pages. Idempotent — the expansion commit triggers one more run
+# that expands nothing and redeploys the same site.
+name: publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Expand submissions into the package layout
+        run: python scripts/expand.py
+      - name: Commit the expansion
+        run: |
+          git config user.name "marketplace-bot"
+          git config user.email "actions@github.com"
+          git add plugins skills registry.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(registry): expand submissions [bot]"
+            git push
+          fi
+      - name: Build index.json + site
+        run: python scripts/build_index.py --out _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
