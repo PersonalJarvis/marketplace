@@ -35,8 +35,8 @@ MAX_DESCRIPTION_CHARS = 500
 NAME_RE = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$")
 GITHUB_LOGIN_RE = re.compile(r"^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$")
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
-ENV_PLACEHOLDER_RE = re.compile(r"^\$\{?plugin_[a-z0-9_]+\}?$")
-HEADER_PLACEHOLDER_RE = re.compile(r"\$\{?plugin_[a-z0-9_]+\}?")
+ENV_PLACEHOLDER_RE = re.compile(r"^\$(?:plugin_[a-z0-9_.-]+|\{plugin_[a-z0-9_.-]+\})$")
+HEADER_PLACEHOLDER_RE = re.compile(r"\$(?:plugin_[a-z0-9_.-]+|\{plugin_[a-z0-9_.-]+\})")
 TOKEN_LITERAL_RE = re.compile(r"[A-Za-z0-9_\-]{20,}")
 
 STDIO_LAUNCHERS = ("npx", "uvx", "docker")
