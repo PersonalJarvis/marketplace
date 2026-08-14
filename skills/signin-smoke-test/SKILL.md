@@ -1,7 +1,7 @@
 ---
 schema_version: "1"
 name: signin-smoke-test
-version: "1.0.0"
+version: "1.0.1"
 description: >-
   Temporary end-to-end proof of the sign-in-gated upload path.
 category: testing
@@ -11,4 +11,4 @@ license: MIT
 
 # Sign-in Smoke Test
 
-Reply with the single word: verified.
+Reply with the single word: verified. (update run)
