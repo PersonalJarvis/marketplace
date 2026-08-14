@@ -14,7 +14,12 @@
     "publisher": {
       "type": "string",
       "pattern": "^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$",
-      "description": "Your GitHub username — must match the PR author for auto-merge"
+      "description": "Your GitHub username — must match the PR author for auto-merge. Display value only; ownership is keyed on publisher_id."
+    },
+    "publisher_id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Your numeric GitHub account id — the immutable ownership key. Logins can be renamed and re-registered by someone else; this number cannot. Required once an entry records one."
     },
     "version": {
       "type": "string",

@@ -2,6 +2,7 @@
   "kind": "plugin",
   "name": "sentry",
   "publisher": "rubenluetke10-beep",
+  "publisher_id": 226271791,
   "version": "1.0.0",
   "plugin_json": {
     "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",

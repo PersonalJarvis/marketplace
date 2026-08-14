@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -63,14 +63,18 @@ def main() -> int:
         else:
             changed |= write_if_changed(ROOT / "skills" / name / "SKILL.md", doc["skill_md"])
 
-        entry = registry.get(name)
-        if entry is None or entry.get("version") != doc["version"]:
-            registry[name] = {
-                "kind": kind,
-                "publisher": doc["publisher"],
-                "version": doc["version"],
-                "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            }
+        previous = registry.get(name) or {}
+        entry = {"kind": kind, "publisher": doc["publisher"], "version": doc["version"]}
+        if doc.get("publisher_id") is not None:
+            entry["publisher_id"] = doc["publisher_id"]
+        # published_at marks the release, so it only moves when the version
+        # does — backfilling publisher_id must not restamp a live entry.
+        if previous.get("version") == doc["version"] and previous.get("published_at"):
+            entry["published_at"] = previous["published_at"]
+        else:
+            entry["published_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        if previous != entry:
+            registry[name] = entry
             changed = True
 
     changed |= write_if_changed(registry_path, dump(registry))

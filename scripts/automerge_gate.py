@@ -8,14 +8,32 @@ A pull request auto-merges when ALL of this holds:
    (added or modified — never deleted, renamed, or anything else).
 2. The submission passes scripts/validate.py (schema, naming, reserved
    names, https-only, launcher allowlist, secret scan, …).
-3. The ``publisher`` field equals the PR author's GitHub login.
-4. For an update: the publisher on main stays the same (ownership) and the
-   version strictly increases — enforced via --base-ref.
+3. The publisher identity is proven by ONE of the two trusted paths below.
+4. For an update: ownership on main is unchanged and the version strictly
+   increases — enforced via --base-ref.
+
+The two paths that prove who published, and nothing else does:
+
+* **Fork path** (a contributor's own pull request): ``publisher`` equals the
+  PR author's login, and when ``publisher_id`` is present it equals the PR
+  author's numeric account id. The author authenticated to GitHub to open
+  the PR, so the author *is* the proof.
+* **Trusted-branch path** (the website's upload form, via the GitHub App):
+  the head branch lives inside THIS repository — which only the App
+  installation and maintainers can write to — and the PR author is the App's
+  bot. The endpoint already derived the publisher from a verified GitHub
+  session, so the file's publisher fields are trusted, and ``publisher_id``
+  is required. Disabled unless TRUSTED_BOT_LOGIN is set, so the path stays
+  closed until the App exists.
+
+A fork PR opened by the bot login gets no trust: it takes the fork path and
+fails there, because a bot login cannot equal a valid ``publisher``.
 
 Anything else is left open with an explanatory comment for maintainer
 review. Validation FAILURES fail the check so the author sees red.
 
-Environment: GH_TOKEN (write), REPO, PR_NUMBER, PR_AUTHOR, HEAD_SHA.
+Environment: GH_TOKEN (write), REPO, PR_NUMBER, PR_AUTHOR, HEAD_SHA,
+TRUSTED_BOT_LOGIN (optional).
 """
 
 from __future__ import annotations
@@ -46,6 +64,45 @@ def comment(repo: str, pr_number: str, body: str) -> None:
         capture_output=True,
         text=True,
     )
+
+
+_PR_CACHE: dict[str, dict] = {}
+
+
+def pr_details(repo: str, pr_number: str) -> dict:
+    """The pull request object, fetched at most once per run."""
+    key = f"{repo}#{pr_number}"
+    if key not in _PR_CACHE:
+        _PR_CACHE[key] = json.loads(gh_api(f"repos/{repo}/pulls/{pr_number}"))
+    return _PR_CACHE[key]
+
+
+def account_id(doc: dict) -> int | None:
+    """The numeric GitHub account id in a submission, or None when absent.
+
+    Mirrors scripts/validate.py: ``bool`` is a subclass of ``int`` in Python,
+    so ``true`` must not pass as the id ``1``.
+    """
+    value = doc.get("publisher_id")
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return None
+    return value
+
+
+def trusted_branch(repo: str, pr_number: str, pr_author: str) -> bool:
+    """True when the head branch lives in THIS repo and our App's bot opened the PR.
+
+    Both halves carry weight. Only the App installation and maintainers can
+    push a branch into this repository, and only our upload endpoint drives
+    the App — so a branch here that the bot opened is a submission whose
+    publisher our server already verified. A fork can never satisfy the
+    first half, whatever login it borrows.
+    """
+    bot = os.environ.get("TRUSTED_BOT_LOGIN", "").strip()
+    if not bot or pr_author != bot:
+        return False
+    head = pr_details(repo, pr_number).get("head") or {}
+    return ((head.get("repo") or {}).get("full_name")) == repo
 
 
 def main() -> int:
@@ -104,22 +161,51 @@ def main() -> int:
         return 1
 
     submission = json.loads((ROOT / path).read_bytes().decode("utf-8"))
-    if submission.get("publisher") != pr_author:
-        comment(
-            repo,
-            pr_number,
-            f"The submission's `publisher` field is "
-            f"`{submission.get('publisher')}` but this PR was opened by "
-            f"`{pr_author}`. Set `publisher` to your own GitHub username — "
-            "it becomes the ownership record for future updates.",
-        )
-        print("not eligible: publisher mismatch")
-        return 0
+    publisher_id = account_id(submission)
+
+    if trusted_branch(repo, pr_number, pr_author):
+        # The branch is inside this repo and the App's bot opened the PR, so
+        # the publisher fields came from a verified session on our endpoint.
+        if publisher_id is None:
+            comment(
+                repo,
+                pr_number,
+                "This submission arrived on the trusted path but carries no "
+                "`publisher_id`. The upload endpoint always sets it, so this "
+                "stays open for maintainer review.",
+            )
+            print("not eligible: trusted path without publisher_id")
+            return 0
+    else:
+        if submission.get("publisher") != pr_author:
+            comment(
+                repo,
+                pr_number,
+                f"The submission's `publisher` field is "
+                f"`{submission.get('publisher')}` but this PR was opened by "
+                f"`{pr_author}`. Set `publisher` to your own GitHub username — "
+                "it becomes the ownership record for future updates.",
+            )
+            print("not eligible: publisher mismatch")
+            return 0
+        author_id = pr_details(repo, pr_number).get("user", {}).get("id")
+        if publisher_id is not None and publisher_id != author_id:
+            comment(
+                repo,
+                pr_number,
+                f"The submission's `publisher_id` is `{publisher_id}` but your "
+                f"GitHub account id is `{author_id}`. `publisher_id` is the "
+                "ownership key — it must be your own numeric account id "
+                "(see `https://api.github.com/users/<your-login>`).",
+            )
+            print("not eligible: publisher_id mismatch")
+            return 0
 
     subprocess.run(
         ["gh", "api", "-X", "PUT", f"repos/{repo}/pulls/{pr_number}/merge",
          "-f", "merge_method=squash",
-         "-f", f"commit_title=publish: {path} by @{pr_author}"],
+         # Credit the publisher, not the bot that carried the file.
+         "-f", f"commit_title=publish: {path} by @{submission.get('publisher')}"],
         check=True,
         capture_output=True,
         text=True,

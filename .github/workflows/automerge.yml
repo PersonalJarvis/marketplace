@@ -37,4 +37,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # The upload endpoint's GitHub App bot, e.g. "personal-jarvis-
+          # marketplace[bot]". Empty until the App exists, which keeps the
+          # trusted-branch path closed.
+          TRUSTED_BOT_LOGIN: ${{ vars.TRUSTED_BOT_LOGIN }}
         run: python scripts/automerge_gate.py

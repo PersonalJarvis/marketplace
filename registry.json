@@ -3,12 +3,14 @@
     "kind": "plugin",
     "published_at": "2026-08-12T15:01:23Z",
     "publisher": "rubenluetke10-beep",
+    "publisher_id": 226271791,
     "version": "1.0.0"
   },
   "three-bullet-brief": {
     "kind": "skill",
     "published_at": "2026-08-12T15:01:23Z",
     "publisher": "rubenluetke10-beep",
+    "publisher_id": 226271791,
     "version": "1.0.0"
   }
 }

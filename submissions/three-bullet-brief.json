@@ -2,6 +2,7 @@
   "kind": "skill",
   "name": "three-bullet-brief",
   "publisher": "rubenluetke10-beep",
+  "publisher_id": 226271791,
   "version": "1.0.0",
   "title": "Three Bullet Brief",
   "description": "Turns any topic, text, or document into exactly three crisp bullets plus a one-line takeaway.",

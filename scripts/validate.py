@@ -12,6 +12,12 @@ Usage:
 
 With --base-ref, a submission that already exists at that git ref must keep
 its publisher and strictly increase its version (the anti-hijack rule).
+
+Ownership is keyed on ``publisher_id`` — the numeric GitHub account id —
+whenever the existing entry carries one. GitHub logins can be renamed, and
+the freed name can then be claimed by anyone, who would inherit every entry
+published under it; the numeric id never changes. Entries predating the
+field fall back to the login comparison until their next update.
 """
 
 from __future__ import annotations
@@ -242,6 +248,18 @@ def version_tuple(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in version.split("."))
 
 
+def account_id(doc: dict) -> int | None:
+    """The submission's numeric GitHub account id, or None when absent/invalid.
+
+    ``bool`` is a subclass of ``int`` in Python, so ``true`` would otherwise
+    pass as the id ``1``.
+    """
+    value = doc.get("publisher_id")
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return None
+    return value
+
+
 def validate_file(path: Path, errors: Errors, base_ref: str | None) -> None:
     raw = path.read_bytes()
     if len(raw) > MAX_FILE_BYTES:
@@ -280,6 +298,9 @@ def validate_file(path: Path, errors: Errors, base_ref: str | None) -> None:
     publisher = doc.get("publisher")
     if not isinstance(publisher, str) or not GITHUB_LOGIN_RE.fullmatch(publisher):
         errors.add(path, "publisher must be the author's GitHub username")
+    publisher_id = account_id(doc)
+    if doc.get("publisher_id") is not None and publisher_id is None:
+        errors.add(path, "publisher_id must be a positive integer (your numeric GitHub account id)")
     version = doc.get("version")
     if not isinstance(version, str) or not SEMVER_RE.fullmatch(version):
         errors.add(path, "version must be SemVer (MAJOR.MINOR.PATCH)")
@@ -292,7 +313,24 @@ def validate_file(path: Path, errors: Errors, base_ref: str | None) -> None:
     if base_ref and isinstance(version, str) and SEMVER_RE.fullmatch(version):
         base = read_base_version(path, base_ref)
         if base is not None:
-            if base.get("publisher") != publisher:
+            base_id = account_id(base)
+            if base_id is not None:
+                # Once an entry records an id, that id is the ONLY ownership
+                # key. Dropping the field must not fall back to the login
+                # comparison — omitting it would otherwise be the bypass.
+                if publisher_id is None:
+                    errors.add(
+                        path,
+                        "publisher_id is required to update this entry — it is owned by "
+                        f"account id {base_id}. Add your numeric GitHub account id.",
+                    )
+                elif publisher_id != base_id:
+                    errors.add(
+                        path,
+                        f"publisher_id may not change on an update (ownership rule): "
+                        f"this entry belongs to account id {base_id}",
+                    )
+            elif base.get("publisher") != publisher:
                 errors.add(path, "publisher may not change on an update (ownership rule)")
             base_version = str(base.get("version", "0.0.0"))
             base_ok = SEMVER_RE.fullmatch(base_version)
