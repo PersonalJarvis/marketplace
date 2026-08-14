@@ -98,8 +98,10 @@ def emit_wallpaper(name: str, source: Path, out: Path) -> dict | None:
             f"WARNING: Pillow missing — copying {name} without re-encode/thumbnail",
             file=sys.stderr,
         )
-        (target_dir / "wallpaper.webp").write_bytes(source.read_bytes())
-        return None
+        # Keep the committed container's own name: calling a JPEG
+        # "wallpaper.webp" would be a lie every decoder notices.
+        (target_dir / source.name).write_bytes(source.read_bytes())
+        return {"filename": source.name, "has_thumb": False}
 
     with Image.open(source) as raw:
         raw.load()
@@ -117,6 +119,7 @@ def emit_wallpaper(name: str, source: Path, out: Path) -> dict | None:
     # a small copy, midpoint threshold.
     mean = ImageStat.Stat(image.convert("L").resize((32, 32))).mean[0]
     return {
+        "filename": "wallpaper.webp",
         "width": image.width,
         "height": image.height,
         "theme": "light" if mean >= 128 else "dark",
@@ -138,12 +141,18 @@ def main() -> int:
     plugins, skills, wallpapers = [], [], []
     for name, meta in sorted(registry.items()):
         if meta.get("kind") == "wallpaper":
-            image_path = ROOT / "wallpapers" / name / "wallpaper.webp"
+            folder = ROOT / "wallpapers" / name
+            candidates = [
+                folder / filename
+                for filename in ("wallpaper.webp", "wallpaper.jpg", "wallpaper.png")
+                if (folder / filename).is_file()
+            ]
             submission_path = ROOT / "submissions" / f"{name}.json"
-            if not image_path.exists() or not submission_path.exists():
+            if not candidates or not submission_path.exists():
                 continue
             submission = read_json(submission_path)
-            derived = emit_wallpaper(name, image_path, out)
+            derived = emit_wallpaper(name, candidates[0], out)
+            emitted = derived["filename"] if derived else "wallpaper.webp"
             entry = {
                 "name": name,
                 "title": submission.get("title", name),
@@ -156,15 +165,15 @@ def main() -> int:
                 "source_url": f"{TREE_URL}/wallpapers/{name}",
                 # Bytes are served from THIS site (see PAGES_URL) — the one
                 # host that stays up whatever the repo's visibility does.
-                "image_url": f"{PAGES_URL}/wallpapers/{name}/wallpaper.webp",
-                "thumb_url": f"{PAGES_URL}/wallpapers/{name}/wallpaper.webp",
+                "image_url": f"{PAGES_URL}/wallpapers/{name}/{emitted}",
+                "thumb_url": f"{PAGES_URL}/wallpapers/{name}/{emitted}",
             }
-            if derived:
+            if derived and derived.get("width"):
                 entry["width"] = derived["width"]
                 entry["height"] = derived["height"]
                 entry["theme"] = entry["theme"] or derived["theme"]
-                if derived["has_thumb"]:
-                    entry["thumb_url"] = f"{PAGES_URL}/wallpapers/{name}/thumb.webp"
+            if derived and derived.get("has_thumb"):
+                entry["thumb_url"] = f"{PAGES_URL}/wallpapers/{name}/thumb.webp"
             wallpapers.append(entry)
         elif meta.get("kind") == "plugin":
             plugin_dir = ROOT / "plugins" / name

@@ -313,9 +313,20 @@ def validate_plugin(doc: dict, name: str, errors: Errors, path: Path) -> None:
     reject_http_urls(doc, "submission", errors, path)
 
 
-def wallpaper_image_path(name: str) -> Path:
-    """Where a wallpaper submission's image must live in this repository."""
-    return ROOT / "wallpapers" / name / "wallpaper.webp"
+# The containers a browser can actually produce: not every engine encodes
+# WebP, so the inbox may deliver JPEG or PNG. The published SITE still serves
+# WebP only — the publish build re-encodes whatever arrived here.
+WALLPAPER_MAGIC = {
+    "wallpaper.webp": (b"RIFF", b"WEBP"),
+    "wallpaper.jpg": (b"\xff\xd8\xff", None),
+    "wallpaper.png": (b"\x89PNG", None),
+}
+
+
+def wallpaper_image_paths(name: str) -> list[Path]:
+    """The image files present for a wallpaper submission (should be one)."""
+    folder = ROOT / "wallpapers" / name
+    return [folder / filename for filename in WALLPAPER_MAGIC if (folder / filename).is_file()]
 
 
 def validate_wallpaper(doc: dict, name: str, errors: Errors, path: Path) -> None:
@@ -326,8 +337,9 @@ def validate_wallpaper(doc: dict, name: str, errors: Errors, path: Path) -> None
     published, because no pattern list can recognize a hateful or illegal
     picture. What CI settles here is everything a machine CAN settle — the
     metadata shape and that the committed file is a plausibly-sized WebP.
-    The publish build re-encodes the image before it reaches the site, so
-    the served bytes are always freshly produced, never the committed file.
+    The publish build re-encodes the image (whatever its container) before
+    it reaches the site, so the served bytes are always freshly produced,
+    never the committed file.
     """
     title = doc.get("title")
     if not isinstance(title, str) or not title.strip():
@@ -351,21 +363,26 @@ def validate_wallpaper(doc: dict, name: str, errors: Errors, path: Path) -> None
     if theme is not None and theme not in ("light", "dark"):
         errors.add(path, "theme must be 'light', 'dark', or omitted")
 
-    image = wallpaper_image_path(name)
-    if not image.is_file():
+    images = wallpaper_image_paths(name)
+    if not images:
         errors.add(
             path,
-            f"wallpapers/{name}/wallpaper.webp is missing — the image is "
-            "committed by the reviewed inbox flow, beside this submission",
+            f"wallpapers/{name}/wallpaper.(webp|jpg|png) is missing — the image "
+            "is committed by the reviewed inbox flow, beside this submission",
         )
+    elif len(images) > 1:
+        errors.add(path, "exactly one image file may exist per wallpaper")
     else:
+        image = images[0]
         size = image.stat().st_size
         if size > MAX_WALLPAPER_BYTES:
             errors.add(path, f"image is {size} bytes — larger than {MAX_WALLPAPER_BYTES}")
         with image.open("rb") as handle:
             header = handle.read(12)
-        if header[:4] != b"RIFF" or header[8:12] != b"WEBP":
-            errors.add(path, "image is not a WebP file (RIFF/WEBP header missing)")
+        prefix, riff_tag = WALLPAPER_MAGIC[image.name]
+        magic_ok = header.startswith(prefix) and (riff_tag is None or header[8:12] == riff_tag)
+        if not magic_ok:
+            errors.add(path, f"{image.name} does not carry its container's magic bytes")
 
     reject_http_urls(doc, "submission", errors, path)
 

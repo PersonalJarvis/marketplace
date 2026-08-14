@@ -58,25 +58,33 @@ def load_module(name: str):
     return module
 
 
-def write_fixture(tmp: Path, submission: dict, image: bytes | None) -> Path:
+def write_fixture(
+    tmp: Path, submission: dict, images: dict[str, bytes] | bytes | None
+) -> Path:
     path = tmp / "submissions" / f"{submission['name']}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(submission), encoding="utf-8")
-    if image is not None:
-        image_path = tmp / "wallpapers" / submission["name"] / "wallpaper.webp"
+    if isinstance(images, bytes):
+        images = {"wallpaper.webp": images}
+    for filename, payload in (images or {}).items():
+        image_path = tmp / "wallpapers" / submission["name"] / filename
         image_path.parent.mkdir(parents=True, exist_ok=True)
-        image_path.write_bytes(image)
+        image_path.write_bytes(payload)
     return path
 
 
 def validate_case(
-    title: str, submission: dict, image: bytes | None, *, expect_valid: bool
+    title: str,
+    submission: dict,
+    images: dict[str, bytes] | bytes | None,
+    *,
+    expect_valid: bool,
 ) -> bool:
     validate = load_module("validate")
     with tempfile.TemporaryDirectory() as tmp_name:
         tmp = Path(tmp_name)
         validate.ROOT = tmp
-        path = write_fixture(tmp, submission, image)
+        path = write_fixture(tmp, submission, images)
         errors = validate.Errors()
         validate.validate_file(path, errors, None)
     valid = not errors.items
@@ -159,6 +167,17 @@ def main() -> int:
                       SUBMISSION, None, expect_valid=False),
         validate_case("a file without the WebP header is refused",
                       SUBMISSION, b"\x89PNG\r\n\x1a\n" + b"\x00" * 64, expect_valid=False),
+        validate_case("a JPEG arriving as wallpaper.jpg passes (browser without WebP encode)",
+                      SUBMISSION, {"wallpaper.jpg": b"\xff\xd8\xff\xe0" + b"\x00" * 64},
+                      expect_valid=True),
+        validate_case("a PNG arriving as wallpaper.png passes",
+                      SUBMISSION, {"wallpaper.png": b"\x89PNG\r\n\x1a\n" + b"\x00" * 64},
+                      expect_valid=True),
+        validate_case("two image files under one name are refused",
+                      SUBMISSION,
+                      {"wallpaper.webp": WEBP_BYTES,
+                       "wallpaper.jpg": b"\xff\xd8\xff\xe0" + b"\x00" * 64},
+                      expect_valid=False),
         validate_case("an image above the byte ceiling is refused",
                       SUBMISSION, WEBP_BYTES + b"\x00" * (8 * 1024 * 1024), expect_valid=False),
         validate_case("a license outside the redistribution allowlist is refused",
