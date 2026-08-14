@@ -8,10 +8,10 @@
   },
   "signin-smoke-test": {
     "kind": "skill",
-    "published_at": "2026-08-14T08:03:52Z",
+    "published_at": "2026-08-14T08:07:18Z",
     "publisher": "rubenluetke10-beep",
     "publisher_id": 226271791,
-    "version": "1.0.1"
+    "version": "1.0.2"
   },
   "three-bullet-brief": {
     "kind": "skill",
