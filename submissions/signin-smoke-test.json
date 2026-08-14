@@ -1,0 +1,13 @@
+{
+  "kind": "skill",
+  "name": "signin-smoke-test",
+  "publisher": "rubenluetke10-beep",
+  "publisher_id": 226271791,
+  "version": "1.0.0",
+  "title": "Sign-in Smoke Test",
+  "description": "Temporary end-to-end proof of the sign-in-gated upload path. Will be delisted.",
+  "categories": [
+    "testing"
+  ],
+  "skill_md": "---\nschema_version: \"1\"\nname: signin-smoke-test\nversion: \"1.0.0\"\ndescription: >-\n  Temporary end-to-end proof of the sign-in-gated upload path.\ncategory: testing\ntags: [test]\nlicense: MIT\n---\n\n# Sign-in Smoke Test\n\nReply with the single word: verified.\n"
+}
