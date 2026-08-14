@@ -55,7 +55,9 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          merged=$(gh pr view "${PR_NUMBER}" --repo "${REPO}" --json merged --jq .merged)
+          # `merged` is not a gh field — the valid ones are state/mergedAt.
+          merged=$(gh pr view "${PR_NUMBER}" --repo "${REPO}" \
+            --json state --jq '.state == "MERGED"')
           if [ "$merged" = "true" ]; then
             gh workflow run publish.yml --repo "${REPO}" --ref main
           fi
