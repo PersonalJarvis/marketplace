@@ -35,6 +35,7 @@ PLUGIN_SCHEMA = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
 
 MAX_FILE_BYTES = 128 * 1024
 MAX_SKILL_BYTES = 64 * 1024
+MAX_BUNDLED_SKILLS = 10
 MAX_DESCRIPTION_CHARS = 500
 
 # Agent Plugins v1.0.0 name rules.
@@ -161,6 +162,94 @@ def validate_mcp_json(name: str, mcp: dict, errors: Errors, path: Path) -> None:
         errors.add(path, f"mcp_json: unknown server type {server_type!r}")
 
 
+# Top-level frontmatter keys a marketplace skill may not declare.
+#
+# risk_policy is a privilege boundary: the app evaluates a skill's tools
+# against the SKILL'S declared tier rather than the tool's own, so an
+# auto-merged author could mark a dangerous tool "safe" and skip the
+# confirmation it was given. Mirrors
+# jarvis/marketplace/agent_plugins_loader.py — a rule enforced on only one
+# of the two publishing routes is a rule authors route around.
+FORBIDDEN_SKILL_KEYS = ("risk_policy",)
+TOP_LEVEL_KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:", re.MULTILINE)
+
+# Executable payloads inside a skill. The standard allows scripts/; community
+# packages ship instructions, and the index embeds SKILL.md only.
+FORBIDDEN_SKILL_DIRS = ("scripts",)
+
+
+def frontmatter_block(skill_md: str) -> str:
+    text = skill_md.lstrip()
+    if not text.startswith("---"):
+        return ""
+    _, _, rest = text.partition("---")
+    block, sep, _ = rest.partition("\n---")
+    return block if sep else ""
+
+
+def validate_skill_document(
+    skill_md: object, name: str, errors: Errors, path: Path, where: str
+) -> None:
+    """Every rule a SKILL.md must satisfy, standalone or bundled."""
+    if not isinstance(skill_md, str) or not skill_md.strip():
+        errors.add(path, f"{where}: the full SKILL.md text is required")
+        return
+    if len(skill_md.encode("utf-8")) > MAX_SKILL_BYTES:
+        errors.add(path, f"{where}: larger than {MAX_SKILL_BYTES} bytes")
+    block = frontmatter_block(skill_md)
+    if not block.strip():
+        errors.add(path, f"{where}: must start with YAML frontmatter (---)")
+        return
+    declared = {m.group(1) for m in TOP_LEVEL_KEY_RE.finditer(block)}
+    for key in FORBIDDEN_SKILL_KEYS:
+        if key in declared:
+            errors.add(
+                path,
+                f"{where}: {key!r} may not be declared — it governs which "
+                "tools run without confirmation; the built-in default applies",
+            )
+    for required in ("name", "description"):
+        if required not in declared:
+            errors.add(path, f"{where}: frontmatter is missing {required!r}")
+    if f"name: {name}" not in block:
+        errors.add(path, f"{where}: frontmatter name must equal {name!r}")
+
+
+def validate_bundled_skills(doc: dict, name: str, errors: Errors, path: Path) -> int:
+    """The optional skills block on a plugin submission. Returns the count."""
+    raw = doc.get("skills")
+    if raw is None:
+        return 0
+    if not isinstance(raw, list):
+        errors.add(path, "skills must be a list")
+        return 0
+    if len(raw) > MAX_BUNDLED_SKILLS:
+        errors.add(path, f"at most {MAX_BUNDLED_SKILLS} bundled skills are accepted")
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            errors.add(path, "each bundled skill must be an object")
+            continue
+        skill_name = item.get("name")
+        if not isinstance(skill_name, str) or not NAME_RE.fullmatch(skill_name):
+            errors.add(path, f"bundled skill name {skill_name!r} violates the name rules")
+            continue
+        if "--" in skill_name or ".." in skill_name:
+            errors.add(path, f"bundled skill name {skill_name!r} violates the name rules")
+            continue
+        if skill_name in seen:
+            errors.add(path, f"bundled skill {skill_name!r} appears twice")
+            continue
+        seen.add(skill_name)
+        for key in item:
+            if key in FORBIDDEN_SKILL_DIRS:
+                errors.add(path, f"bundled skill {skill_name!r}: {key}/ may not be published")
+        validate_skill_document(
+            item.get("skill_md"), skill_name, errors, path, f"skills[{skill_name}]"
+        )
+    return len(seen)
+
+
 def validate_plugin(doc: dict, name: str, errors: Errors, path: Path) -> None:
     plugin_json = doc.get("plugin_json")
     if not isinstance(plugin_json, dict):
@@ -200,20 +289,22 @@ def validate_plugin(doc: dict, name: str, errors: Errors, path: Path) -> None:
     usage_card = doc.get("usage_card")
     if usage_card is not None and not isinstance(usage_card, str):
         errors.add(path, "usage_card must be a string or null")
+    skill_count = validate_bundled_skills(doc, name, errors, path)
+    # A package must carry something that works. Native bindings are rejected
+    # above, so without an MCP server, a hosted MCP auth URL, or skills, the
+    # store would show a card that collects a token and offers nothing.
+    has_auth_mcp = isinstance(auth, dict) and bool(auth.get("mcp_url"))
+    if mcp_json is None and not has_auth_mcp and skill_count == 0:
+        errors.add(
+            path,
+            "package has no components — needs an mcp_json, a hosted MCP auth "
+            "mode, or bundled skills",
+        )
     reject_http_urls(doc, "submission", errors, path)
 
 
 def validate_skill(doc: dict, name: str, errors: Errors, path: Path) -> None:
-    skill_md = doc.get("skill_md")
-    if not isinstance(skill_md, str) or not skill_md.strip():
-        errors.add(path, "skill_md (the full SKILL.md text) is required for kind=skill")
-        return
-    if len(skill_md.encode("utf-8")) > MAX_SKILL_BYTES:
-        errors.add(path, f"skill_md larger than {MAX_SKILL_BYTES} bytes")
-    if not skill_md.lstrip().startswith("---"):
-        errors.add(path, "skill_md must start with YAML frontmatter (---)")
-    if f"name: {name}" not in skill_md:
-        errors.add(path, "skill_md frontmatter must declare the same name as the submission")
+    validate_skill_document(doc.get("skill_md"), name, errors, path, "skill_md")
     title = doc.get("title")
     if not isinstance(title, str) or not title.strip():
         errors.add(path, "title is required for kind=skill")

@@ -34,6 +34,27 @@
       "type": ["object", "null"],
       "description": "kind=plugin: optional mcp.json with exactly one streamable-http or pinned stdio server; never credentials"
     },
+    "skills": {
+      "type": "array",
+      "maxItems": 10,
+      "description": "kind=plugin: skills the package bundles (Agent Plugins skills/). Instructions only — no scripts/, and no risk_policy in the frontmatter.",
+      "items": {
+        "type": "object",
+        "required": ["name", "skill_md"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$",
+            "description": "Becomes a directory under the user's skills folder"
+          },
+          "skill_md": {
+            "type": "string",
+            "description": "The complete SKILL.md (YAML frontmatter + instructions)"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "usage_card": {
       "type": ["string", "null"],
       "description": "kind=plugin: optional markdown card (frontmatter 'keywords:' line + guidance prose)"

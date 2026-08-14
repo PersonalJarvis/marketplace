@@ -56,6 +56,7 @@ def build_rules() -> dict:
         "limits": {
             "max_file_bytes": v.MAX_FILE_BYTES,
             "max_skill_bytes": v.MAX_SKILL_BYTES,
+            "max_bundled_skills": v.MAX_BUNDLED_SKILLS,
             "max_description_chars": v.MAX_DESCRIPTION_CHARS,
         },
         "patterns": {
