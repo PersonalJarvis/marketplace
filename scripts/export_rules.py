@@ -58,6 +58,8 @@ def build_rules() -> dict:
             "max_skill_bytes": v.MAX_SKILL_BYTES,
             "max_bundled_skills": v.MAX_BUNDLED_SKILLS,
             "max_description_chars": v.MAX_DESCRIPTION_CHARS,
+            "max_wallpaper_bytes": v.MAX_WALLPAPER_BYTES,
+            "max_wallpaper_title_chars": v.MAX_WALLPAPER_TITLE_CHARS,
         },
         "patterns": {
             "name": v.NAME_RE.pattern,
@@ -75,6 +77,7 @@ def build_rules() -> dict:
         },
         "stdio_launchers": sorted(v.STDIO_LAUNCHERS),
         "auth_modes": sorted(v.AUTH_MODES),
+        "wallpaper_licenses": sorted(v.WALLPAPER_LICENSES),
         "plugin_schema": v.PLUGIN_SCHEMA,
         "extension_namespace": v.EXTENSION_NAMESPACE,
     }

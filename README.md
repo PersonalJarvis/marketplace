@@ -112,12 +112,33 @@ Two limits, enforced by CI and again by the app:
   without asking the user, and nothing here is reviewed by a human — the
   built-in default applies instead.
 
+## Wallpapers — the one reviewed lane
+
+Wallpapers work differently from everything above, in exactly one way:
+**they never auto-merge.** No pattern list can recognize a hateful or
+illegal image, so a maintainer looks at every picture before it is
+published. Submissions arrive through the storefront's upload form, wait in
+a private review queue, and only an approval commits the pair
+`submissions/<name>.json` + `wallpapers/<name>/wallpaper.webp` here
+(`kind: "wallpaper"`, `title`, a redistribution license out of CC0-1.0 /
+CC-BY-4.0 / CC-BY-SA-4.0, optional `theme`). A wallpaper pull request
+opened directly stays open for that same review (`automerge_gate.py`).
+
+The publish build re-encodes every image and derives a grid thumbnail
+(`build_index.py`), so the site serves freshly-produced bytes — EXIF,
+appended payloads and forged headers do not survive — from
+`…/wallpapers/<name>/wallpaper.webp` and `…/thumb.webp` on this Pages site.
+The app imports a wallpaper with one click (or
+`jarvis marketplace install <name>`); it lands in the wallpaper picker
+under "Yours".
+
 ## Trust model, stated plainly
 
-Nothing here is reviewed by a human before it is listed. The automated
-checks stop credential smuggling, plaintext endpoints, unpinned code
-execution, and name hijacking — they cannot judge whether a service is
-trustworthy. The app therefore shows every community entry unbadged as
-unreviewed and displays the exact endpoint or command before installing.
-Report a malicious listing by opening an issue; a revert delists it within
-minutes.
+Nothing here except wallpapers is reviewed by a human before it is listed.
+The automated checks stop credential smuggling, plaintext endpoints,
+unpinned code execution, and name hijacking — they cannot judge whether a
+service is trustworthy. The app therefore shows every community plugin and
+skill as unreviewed and displays the exact endpoint or command before
+installing. Wallpapers are the inverse: every image is seen by a maintainer
+before publication. Report a malicious listing by opening an issue; a
+revert delists it within minutes.

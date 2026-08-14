@@ -5,7 +5,7 @@
   "type": "object",
   "required": ["kind", "name", "publisher", "version"],
   "properties": {
-    "kind": { "enum": ["plugin", "skill"] },
+    "kind": { "enum": ["plugin", "skill", "wallpaper"] },
     "name": {
       "type": "string",
       "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$",
@@ -73,6 +73,14 @@
     "skill_md": {
       "type": "string",
       "description": "kind=skill: the complete SKILL.md (YAML frontmatter + instructions)"
+    },
+    "license": {
+      "enum": ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"],
+      "description": "kind=wallpaper: the license the image is redistributed under — the feed serves the file to every install, so it must permit exactly that"
+    },
+    "theme": {
+      "enum": ["light", "dark"],
+      "description": "kind=wallpaper: which UI mode the picture suits; recomputed from luminance at build time when omitted"
     }
   },
   "allOf": [
@@ -83,6 +91,10 @@
     {
       "if": { "properties": { "kind": { "const": "skill" } } },
       "then": { "required": ["title", "description", "skill_md"] }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "wallpaper" } } },
+      "then": { "required": ["title", "license"] }
     }
   ]
 }

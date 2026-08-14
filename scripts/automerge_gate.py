@@ -163,6 +163,23 @@ def main() -> int:
     submission = json.loads((ROOT / path).read_bytes().decode("utf-8"))
     publisher_id = account_id(submission)
 
+    if submission.get("kind") == "wallpaper":
+        # The one lane a machine must never publish: no pattern list can
+        # recognize a hateful or illegal image, so every wallpaper waits for
+        # a maintainer's eyes. The reviewed inbox flow commits approved ones
+        # directly; a wallpaper PR is either that flow mid-review or someone
+        # routing around it — both stay open.
+        comment(
+            repo,
+            pr_number,
+            "Wallpapers are the reviewed lane: a maintainer looks at every "
+            "image before it is published, so this PR does not merge "
+            "automatically. Submit wallpapers through the storefront's "
+            "upload form — it lands in the review queue directly.",
+        )
+        print("not eligible: wallpapers never auto-merge")
+        return 0
+
     if trusted_branch(repo, pr_number, pr_author):
         # The branch is inside this repo and the App's bot opened the PR, so
         # the publisher fields came from a verified session on our endpoint.

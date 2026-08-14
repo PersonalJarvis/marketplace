@@ -34,6 +34,10 @@ jobs:
       # and neither is visible in the manifest — so the rules are pinned.
       - name: Bundled skill rules regression test
         run: python scripts/test_bundled_skills.py
+      # Wallpapers are the one lane a machine must never publish — the
+      # never-auto-merge rule and the image checks are pinned.
+      - name: Wallpaper lane regression test
+        run: python scripts/test_wallpapers.py
       # The upload endpoint and the app read rules.json instead of retyping
       # the limits. A stale copy would let them accept what CI rejects.
       - name: Published rules match the validator

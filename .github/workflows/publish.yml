@@ -40,6 +40,10 @@ jobs:
             git commit -m "chore(registry): expand submissions [bot]"
             git push
           fi
+      # Pillow re-encodes every published wallpaper and derives its grid
+      # thumbnail — the site never serves the bytes an upload delivered.
+      - name: Install the image toolchain
+        run: pip install "Pillow>=10"
       - name: Build index.json + site
         run: python scripts/build_index.py --out _site
       - uses: actions/upload-pages-artifact@v3
