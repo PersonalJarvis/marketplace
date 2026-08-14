@@ -13,6 +13,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # Needed to dispatch publish.yml after a merge (last step of the job).
+  actions: write
 
 concurrency:
   group: automerge-${{ github.event.pull_request.number }}
@@ -42,3 +44,18 @@ jobs:
           # trusted-branch path closed.
           TRUSTED_BOT_LOGIN: ${{ vars.TRUSTED_BOT_LOGIN }}
         run: python scripts/automerge_gate.py
+      - name: Trigger publish after a merge
+        # A merge performed with the Actions token does not cascade into
+        # push-triggered workflows (GitHub's anti-recursion rule), so
+        # without this step a merged submission never reaches index.json.
+        # workflow_dispatch is the documented exception to that rule, and
+        # publish.yml is idempotent, so a stray dispatch cannot hurt.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          merged=$(gh pr view "${PR_NUMBER}" --repo "${REPO}" --json merged --jq .merged)
+          if [ "$merged" = "true" ]; then
+            gh workflow run publish.yml --repo "${REPO}" --ref main
+          fi

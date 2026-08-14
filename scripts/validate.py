@@ -312,6 +312,12 @@ def validate_file(path: Path, errors: Errors, base_ref: str | None) -> None:
 
     if base_ref and isinstance(version, str) and SEMVER_RE.fullmatch(version):
         base = read_base_version(path, base_ref)
+        if base == doc:
+            # The workflow validates EVERY submission, not only the ones a
+            # PR touches. A file identical to its base version is untouched
+            # in this change — the update rules (ownership, version bump)
+            # must not fire for it, or every PR fails on the back catalog.
+            base = None
         if base is not None:
             base_id = account_id(base)
             if base_id is not None:
