@@ -3,11 +3,11 @@
   "name": "signin-smoke-test",
   "publisher": "rubenluetke10-beep",
   "publisher_id": 226271791,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "title": "Sign-in Smoke Test",
-  "description": "Temporary end-to-end proof of the sign-in-gated upload path (update run). Will be delisted.",
+  "description": "Temporary end-to-end proof of the fully hands-free chain. Will be delisted.",
   "categories": [
     "testing"
   ],
-  "skill_md": "---\nschema_version: \"1\"\nname: signin-smoke-test\nversion: \"1.0.1\"\ndescription: >-\n  Temporary end-to-end proof of the sign-in-gated upload path.\ncategory: testing\ntags: [test]\nlicense: MIT\n---\n\n# Sign-in Smoke Test\n\nReply with the single word: verified. (update run)\n"
+  "skill_md": "---\nschema_version: \"1\"\nname: signin-smoke-test\nversion: \"1.0.2\"\ndescription: >-\n  Temporary end-to-end proof of the sign-in-gated upload path.\ncategory: testing\ntags: [test]\nlicense: MIT\n---\n\n# Sign-in Smoke Test\n\nReply with the single word: verified. (hands-free run)\n"
 }
