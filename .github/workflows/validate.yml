@@ -26,6 +26,10 @@ jobs:
       # cases are pinned rather than trusted to hold.
       - name: Ownership rule regression test
         run: python scripts/test_ownership.py
+      # The gate merges with no human in the loop, so both trust paths are
+      # pinned — above all that a fork cannot reach the trusted one.
+      - name: Auto-merge gate regression test
+        run: python scripts/test_gate.py
       # The upload endpoint and the app read rules.json instead of retyping
       # the limits. A stale copy would let them accept what CI rejects.
       - name: Published rules match the validator
