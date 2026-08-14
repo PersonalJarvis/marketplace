@@ -68,6 +68,14 @@ submit form fills it in for you.
 One JSON file per item — see [`schemas/submission.schema.json`](schemas/submission.schema.json)
 and the live examples in [`submissions/`](submissions/).
 
+The limits, patterns, reserved names and allowlists are generated from the
+validator into [`rules.json`](rules.json) and published at
+<https://personaljarvis.github.io/marketplace/rules.json>. Anything that
+checks a submission before it reaches CI — the upload form, the app — reads
+that file instead of retyping the values, and CI fails if the two drift
+apart. `scripts/validate.py` stays the authority for the rules that are
+logic rather than data.
+
 **Plugin** (`kind: "plugin"`): an embedded Agent Plugins v1.0.0
 `plugin_json` (Jarvis specifics under the `io.github.personaljarvis`
 extension: auth mode, branding, category), an optional `mcp_json`

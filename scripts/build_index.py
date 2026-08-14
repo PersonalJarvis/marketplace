@@ -5,6 +5,9 @@ Output (default ``_site/``):
 - ``index.json``  — the single feed Personal Jarvis fetches (community
   plugins with embedded manifests + skills with raw download URLs). The
   storefront on personaljarvis.ai reads the SAME file client-side.
+- ``rules.json``  — the generated submission rules, published so the upload
+  endpoint and the app can read the limits instead of retyping them
+  (scripts/export_rules.py).
 - ``index.html``  — a small redirect to the storefront for humans who open
   the Pages URL directly.
 
@@ -18,7 +21,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -99,8 +102,8 @@ def main() -> int:
         # Monotonic enough for cache-busting: the workflow run number, or a
         # timestamp when built locally.
         "revision": int(os.environ.get("GITHUB_RUN_NUMBER", 0))
-        or int(datetime.now(timezone.utc).timestamp()),
-        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        or int(datetime.now(UTC).timestamp()),
+        "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "plugins": plugins,
         "skills": skills,
     }
@@ -110,6 +113,16 @@ def main() -> int:
         json.dumps(index, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     (out / "index.html").write_text(REDIRECT_HTML, encoding="utf-8")
+
+    # Ship the generated rules beside the feed so the upload endpoint and the
+    # app read the limits rather than retyping them. The index still deploys
+    # without it — a missing feed is worse than a missing rule sheet.
+    rules_path = ROOT / "rules.json"
+    if rules_path.exists():
+        (out / "rules.json").write_text(rules_path.read_text(encoding="utf-8"), encoding="utf-8")
+    else:
+        print("WARNING: rules.json missing — run scripts/export_rules.py", file=sys.stderr)
+
     print(f"index: {len(plugins)} plugin(s), {len(skills)} skill(s) -> {out / 'index.json'}")
     return 0
 
