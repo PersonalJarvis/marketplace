@@ -45,6 +45,26 @@ def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def read_bundled_skills(plugin_dir: Path) -> list[dict]:
+    """The package's skills/<name>/SKILL.md files, embedded verbatim.
+
+    Only SKILL.md travels. A skill may reference other files in the standard,
+    but community packages ship instructions, not payloads — see the
+    submission rules.
+    """
+    skills_dir = plugin_dir / "skills"
+    if not skills_dir.is_dir():
+        return []
+    bundled = []
+    for skill_dir in sorted(p for p in skills_dir.iterdir() if p.is_dir()):
+        skill_md = skill_dir / "SKILL.md"
+        if skill_md.exists():
+            bundled.append(
+                {"name": skill_dir.name, "skill_md": skill_md.read_text(encoding="utf-8")}
+            )
+    return bundled
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default="_site")
@@ -74,6 +94,7 @@ def main() -> int:
                     "source_url": f"{TREE_URL}/plugins/{name}",
                     "plugin_json": read_json(plugin_json_path),
                     "mcp_json": read_json(mcp_path) if mcp_path.exists() else None,
+                    "skills": read_bundled_skills(plugin_dir),
                     "usage_card": (
                         card_path.read_text(encoding="utf-8") if card_path.exists() else None
                     ),
@@ -94,6 +115,13 @@ def main() -> int:
                     "published_at": meta.get("published_at"),
                     "categories": submission.get("categories", []),
                     "source_url": f"{TREE_URL}/skills/{name}",
+                    # The instructions themselves, not a link to them. A
+                    # linked file inherits the availability of whatever host
+                    # serves it: on 2026-08-14 this repo went private while
+                    # Pages kept serving this index, and every raw_url in a
+                    # live feed answered 404 — the store listed skills it
+                    # could not install. raw_url stays for older clients.
+                    "skill_md": skill_path.read_text(encoding="utf-8"),
                     "raw_url": f"{RAW_URL}/skills/{name}/SKILL.md",
                 }
             )

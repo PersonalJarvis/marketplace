@@ -56,6 +56,15 @@ def main() -> int:
             changed |= write_if_changed(target / "plugin.json", dump(doc["plugin_json"]))
             if doc.get("mcp_json"):
                 changed |= write_if_changed(target / "mcp.json", dump(doc["mcp_json"]))
+            # `skills/<name>/SKILL.md` — the layout the Agent Plugins standard
+            # defines, so the published directory is a real package another
+            # client can read, not a shape only this registry understands.
+            # Names (and path traversal) are settled by validate.py before
+            # anything reaches here.
+            for skill in doc.get("skills") or []:
+                changed |= write_if_changed(
+                    target / "skills" / skill["name"] / "SKILL.md", skill["skill_md"]
+                )
             if doc.get("usage_card"):
                 changed |= write_if_changed(
                     target / EXTENSION_DIR / "usage-card.md", doc["usage_card"]

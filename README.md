@@ -79,12 +79,38 @@ logic rather than data.
 **Plugin** (`kind: "plugin"`): an embedded Agent Plugins v1.0.0
 `plugin_json` (Jarvis specifics under the `io.github.personaljarvis`
 extension: auth mode, branding, category), an optional `mcp_json`
-(one `streamable-http` or pinned `stdio` server), and an optional
-`usage_card` (keywords that help Jarvis offer the plugin on relevant turns).
+(one `streamable-http` or pinned `stdio` server), an optional `skills`
+array, and an optional `usage_card` (keywords that help Jarvis offer the
+plugin on relevant turns). A package must carry at least one working
+component — an entry that only collects a token is refused.
 
 **Skill** (`kind: "skill"`): `title`, `description`, `categories`, and the
 full `skill_md` (a `SKILL.md` with YAML frontmatter — the app validates it
 on install and shows it to the user before it can run).
+
+### Bundling skills with a plugin
+
+A plugin may ship the instructions for using it, which is what the Agent
+Plugins standard is for: tools and guidance installed together. Add them to
+the submission as
+
+```json
+"skills": [{ "name": "sentry-triage", "skill_md": "---\nname: sentry-triage\n..." }]
+```
+
+and the expansion writes a real `plugins/<name>/skills/<skill>/SKILL.md`, so
+the published directory is a package any client implementing the standard
+can read. Installing the plugin writes those skills into the user's skills
+folder — named on the consent dialog beforehand — and removing the plugin
+takes them away again.
+
+Two limits, enforced by CI and again by the app:
+
+* **No `scripts/`.** The standard allows a skill to ship executables; this
+  registry publishes instructions and reference text only.
+* **No `risk_policy` in the frontmatter.** That field decides which tools run
+  without asking the user, and nothing here is reviewed by a human — the
+  built-in default applies instead.
 
 ## Trust model, stated plainly
 
