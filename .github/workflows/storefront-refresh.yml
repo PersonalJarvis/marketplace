@@ -1,0 +1,47 @@
+# Tell the storefront (personaljarvis.ai) to rebuild itself.
+#
+# The storefront is a static Astro site. It reads this registry's index.json at
+# BUILD time and turns it into the browse page, the counters in the hero, and
+# one detail page per listing. Nothing about it is live: until it rebuilds, a
+# listing published here has no page of its own, and its card links nowhere.
+#
+# So the registry asks. publish.yml calls this after a successful publish, and
+# the schedule below covers the one thing the registry cannot hear about — the
+# built-in connector catalogue, which the storefront reads out of the main
+# PersonalJarvis repository. One cheap ping a day beats wiring a second
+# repository into this one.
+#
+# A deploy hook is a plain URL that can do exactly one thing: rebuild that one
+# Cloudflare Pages project. It is a hook rather than an API token on purpose —
+# this repository is public, and the worst a leaked hook buys anybody is a
+# rebuild of a site that is already public.
+name: storefront-refresh
+
+on:
+  schedule:
+    # 04:17 UTC — off the hour, because everybody schedules on the hour and
+    # GitHub delays crowded slots.
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    # It sends one HTTP request. It has no business touching this repository,
+    # and publish.yml would otherwise hand it write access by inheritance.
+    permissions: {}
+    steps:
+      - name: Ask the storefront to rebuild
+        env:
+          HOOK: ${{ secrets.STOREFRONT_DEPLOY_HOOK }}
+        run: |
+          # Unset in forks, and before the hook exists. A publish that worked
+          # must not go red because the storefront could not be notified — the
+          # index is out either way, and the site catches up on its next build.
+          if [ -z "$HOOK" ]; then
+            echo "STOREFRONT_DEPLOY_HOOK is not set - skipping the rebuild request."
+            exit 0
+          fi
+          curl -fsS --retry 3 --retry-delay 5 -X POST "$HOOK" -o /dev/null
+          echo "Storefront rebuild requested."

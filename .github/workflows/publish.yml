@@ -51,3 +51,11 @@ jobs:
           path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # The index is live, but the storefront that presents it is static and still
+  # showing the previous one. Ask it to rebuild. Runs after the deployment, so
+  # the site rebuilds against the index it is being told about.
+  refresh-storefront:
+    needs: publish
+    uses: ./.github/workflows/storefront-refresh.yml
+    secrets: inherit
