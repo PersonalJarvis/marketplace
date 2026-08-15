@@ -38,6 +38,10 @@ jobs:
       # never-auto-merge rule and the image checks are pinned.
       - name: Wallpaper lane regression test
         run: python scripts/test_wallpapers.py
+      # The storefront shows a package file by file before anyone installs
+      # it, and reads that listing from the feed — so the listing is pinned.
+      - name: Published file listing regression test
+        run: python scripts/test_index_files.py
       # The upload endpoint and the app read rules.json instead of retyping
       # the limits. A stale copy would let them accept what CI rejects.
       - name: Published rules match the validator

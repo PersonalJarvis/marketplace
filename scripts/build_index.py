@@ -28,6 +28,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 EXTENSION_DIR = "io.github.personaljarvis"
 
+# Largest file the feed embeds verbatim. Same number as validate.py's
+# per-file submission limit (rules.json limits.max_file_bytes), so a file
+# that passed the gate is always readable in the feed; anything bigger could
+# only have arrived before that limit existed.
+MAX_EMBED_BYTES = 131_072
+
 REPO = os.environ.get("GITHUB_REPOSITORY", "PersonalJarvis/marketplace")
 BRANCH = "main"
 TREE_URL = f"https://github.com/{REPO}/tree/{BRANCH}"
@@ -77,6 +83,42 @@ def read_bundled_skills(plugin_dir: Path) -> list[dict]:
                 {"name": skill_dir.name, "skill_md": skill_md.read_text(encoding="utf-8")}
             )
     return bundled
+
+
+def collect_files(entry_dir: Path) -> list[dict]:
+    """Every file of one published entry, path + size + verbatim text.
+
+    This is the entry's whole folder, not a curated selection: the storefront
+    renders it as a file browser so a visitor can read exactly what they are
+    about to install, without a GitHub account and without trusting our
+    summary of it. Embedded rather than linked for the same reason the skill
+    body is (see the skill branch below) — a link inherits the availability of
+    whatever host serves it.
+
+    ``text`` is null for anything that is not UTF-8 text, or that exceeds the
+    per-file submission limit (rules.json ``limits.max_file_bytes``); such a
+    file still appears in the tree with its size, so the listing stays honest
+    about what it carries. Nothing here can grow unbounded: validate.py caps
+    both the size and the number of files a submission may contain.
+
+    Root files come first, then deeper paths, each level alphabetical — the
+    order a `tree` listing reads in.
+    """
+    files = []
+    for path in entry_dir.rglob("*"):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(entry_dir).as_posix()
+        raw = path.read_bytes()
+        text: str | None = None
+        if len(raw) <= MAX_EMBED_BYTES:
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                text = None
+        files.append({"path": rel, "size": len(raw), "text": text})
+    files.sort(key=lambda f: (f["path"].count("/"), f["path"]))
+    return files
 
 
 def emit_wallpaper(name: str, source: Path, out: Path) -> dict | None:
@@ -195,6 +237,8 @@ def main() -> int:
                     "usage_card": (
                         card_path.read_text(encoding="utf-8") if card_path.exists() else None
                     ),
+                    # The package as it was published, file by file.
+                    "files": collect_files(plugin_dir),
                 }
             )
         else:
@@ -220,6 +264,9 @@ def main() -> int:
                     # could not install. raw_url stays for older clients.
                     "skill_md": skill_path.read_text(encoding="utf-8"),
                     "raw_url": f"{RAW_URL}/skills/{name}/SKILL.md",
+                    # A skill is usually one file, but the folder is what was
+                    # published — so the folder is what the feed carries.
+                    "files": collect_files(ROOT / "skills" / name),
                 }
             )
 
