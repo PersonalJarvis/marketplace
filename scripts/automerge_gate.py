@@ -164,20 +164,20 @@ def main() -> int:
     publisher_id = account_id(submission)
 
     if submission.get("kind") == "wallpaper":
-        # The one lane a machine must never publish: no pattern list can
-        # recognize a hateful or illegal image, so every wallpaper waits for
-        # a maintainer's eyes. The reviewed inbox flow commits approved ones
-        # directly; a wallpaper PR is either that flow mid-review or someone
-        # routing around it — both stay open.
+        # Wallpapers publish through the storefront's upload form, which
+        # commits the image and its submission together. A wallpaper PR
+        # therefore cannot be complete on this path: the one-file rule above
+        # admits only the JSON, and validate.py needs the image beside it.
+        # Rather than merge a listing whose picture is missing, say so.
         comment(
             repo,
             pr_number,
-            "Wallpapers are the reviewed lane: a maintainer looks at every "
-            "image before it is published, so this PR does not merge "
-            "automatically. Submit wallpapers through the storefront's "
-            "upload form — it lands in the review queue directly.",
+            "Wallpapers publish through the storefront's upload form "
+            "(personaljarvis.ai/marketplace/wallpapers/submit), which commits "
+            "the image and its listing together — a pull request can only "
+            "carry one of the two, so this one does not merge automatically.",
         )
-        print("not eligible: wallpapers never auto-merge")
+        print("not eligible: wallpapers publish through the upload form")
         return 0
 
     if trusted_branch(repo, pr_number, pr_author):

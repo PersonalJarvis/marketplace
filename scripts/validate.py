@@ -314,7 +314,7 @@ def validate_plugin(doc: dict, name: str, errors: Errors, path: Path) -> None:
 
 
 # The containers a browser can actually produce: not every engine encodes
-# WebP, so the inbox may deliver JPEG or PNG. The published SITE still serves
+# WebP, so an upload may deliver JPEG or PNG. The published SITE still serves
 # WebP only — the publish build re-encodes whatever arrived here.
 WALLPAPER_MAGIC = {
     "wallpaper.webp": (b"RIFF", b"WEBP"),
@@ -332,14 +332,15 @@ def wallpaper_image_paths(name: str) -> list[Path]:
 def validate_wallpaper(doc: dict, name: str, errors: Errors, path: Path) -> None:
     """kind=wallpaper: metadata rules plus the image file beside it.
 
-    Wallpapers are the one lane that never auto-merges (see
-    automerge_gate.py): a maintainer reviews every image before it is
-    published, because no pattern list can recognize a hateful or illegal
-    picture. What CI settles here is everything a machine CAN settle — the
-    metadata shape and that the committed file is a plausibly-sized WebP.
-    The publish build re-encodes the image (whatever its container) before
-    it reaches the site, so the served bytes are always freshly produced,
-    never the committed file.
+    Nobody looks at the picture before it publishes, and no pattern list can
+    recognize a hateful or illegal one — so what CI settles here is strictly
+    everything a machine CAN settle: the metadata shape and that the
+    committed file is a plausibly-sized image. Judging the depiction is left
+    to reports after the fact, which the storefront's delist path answers.
+
+    The publish build re-encodes the image (whatever its container) before it
+    reaches the site, so the served bytes are always freshly produced, never
+    the committed file.
     """
     title = doc.get("title")
     if not isinstance(title, str) or not title.strip():
@@ -367,8 +368,8 @@ def validate_wallpaper(doc: dict, name: str, errors: Errors, path: Path) -> None
     if not images:
         errors.add(
             path,
-            f"wallpapers/{name}/wallpaper.(webp|jpg|png) is missing — the image "
-            "is committed by the reviewed inbox flow, beside this submission",
+            f"wallpapers/{name}/wallpaper.(webp|jpg|png) is missing — the "
+            "upload form commits the image beside this submission",
         )
     elif len(images) > 1:
         errors.add(path, "exactly one image file may exist per wallpaper")

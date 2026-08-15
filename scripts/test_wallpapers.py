@@ -6,9 +6,11 @@ Two halves, matching the lane's two promises:
 1. ``validate.py`` settles everything a machine can settle about a wallpaper
    submission — metadata shape, license allowlist, and that the committed
    file beside it is a plausibly-sized WebP.
-2. ``automerge_gate.py`` NEVER merges a wallpaper, however valid and however
-   trusted the path — a maintainer looks at every image before it publishes,
-   because no pattern list recognizes a hateful or illegal picture.
+2. ``automerge_gate.py`` never merges a wallpaper PR, however valid and
+   however trusted the path. Wallpapers publish through the storefront's
+   upload form, which commits the image and the listing together; a pull
+   request can carry only the listing, so merging one would publish an entry
+   whose picture is missing.
 
 Usage:
     python scripts/test_wallpapers.py
@@ -148,7 +150,7 @@ def gate_case(title: str, *, pr_author: str, head_repo: str, trusted_bot: str) -
         )
         gate.main()
         held = not fake_proc.merged()
-        explained = any("reviewed lane" in body for body in comments)
+        explained = any("upload form" in body for body in comments)
     ok = held and explained
     verdict = "ok" if ok else f"FAILED (held={held}, explained={explained})"
     print(f"  gate: {title}: {verdict}")
@@ -190,7 +192,8 @@ def main() -> int:
                       WEBP_BYTES, expect_valid=False),
         validate_case("an unknown theme value is refused",
                       dict(SUBMISSION, theme="sepia"), WEBP_BYTES, expect_valid=False),
-        # The load-bearing bit: valid + trusted is still not enough to merge.
+        # The load-bearing bit: a PR can only carry the listing, never the
+        # image, so valid + trusted is still not enough to merge.
         gate_case("a valid wallpaper on the TRUSTED bot path stays open",
                   pr_author=BOT, head_repo=REPO, trusted_bot=BOT),
         gate_case("a valid wallpaper on the fork path stays open",
