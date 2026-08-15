@@ -1,4 +1,25 @@
 {
+  "flooded-observatory": {
+    "kind": "wallpaper",
+    "published_at": "2026-08-15T09:08:44Z",
+    "publisher": "rubenluetke10-beep",
+    "publisher_id": 226271791,
+    "version": "1.0.0"
+  },
+  "mallorcan-stone-courtyard": {
+    "kind": "wallpaper",
+    "published_at": "2026-08-15T09:08:44Z",
+    "publisher": "rubenluetke10-beep",
+    "publisher_id": 226271791,
+    "version": "1.0.0"
+  },
+  "rain-antenna-city": {
+    "kind": "wallpaper",
+    "published_at": "2026-08-15T09:08:44Z",
+    "publisher": "rubenluetke10-beep",
+    "publisher_id": 226271791,
+    "version": "1.0.0"
+  },
   "sentry": {
     "kind": "plugin",
     "published_at": "2026-08-12T15:01:23Z",
