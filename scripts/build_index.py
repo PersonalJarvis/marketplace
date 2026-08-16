@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -61,8 +62,91 @@ REDIRECT_HTML = f"""<!doctype html>
 """
 
 
+# The two frontmatter profiles a published skill can carry. "jarvis" is the
+# app's own schema (triggers, execution mode, plugin coupling); "portable" is a
+# plain Agent Skill in the open format — the file `npx skills add` installs
+# into Claude Code, Cursor, Codex and the rest. Mirrors SKILL_FLAVORS in
+# jarvis/marketplace/community_source.py.
+SKILL_FLAVORS = ("jarvis", "portable")
+
+# Frontmatter keys only Personal Jarvis defines. A file that uses one of them
+# was written FOR Jarvis; a file that uses none runs anywhere a SKILL.md runs.
+# `description` and `name` are deliberately absent — every skill has those.
+JARVIS_ONLY_KEYS = frozenset(
+    {
+        "schema_version",
+        "triggers",
+        "requires_tools",
+        "risk_policy",
+        "execution",
+        "auto_fire",
+        "state",
+        "config",
+        "token_budget_estimate",
+        "plugin_id",
+        "intent_verbs",
+        "intent_objects",
+    }
+)
+
+TOP_LEVEL_KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:", re.MULTILINE)
+
+# What a compatibility name may be. Publisher-written free text that lands in
+# the store UI, so the feed bounds it rather than the reader having to.
+MAX_COMPATIBLE_AGENTS = 8
+MAX_AGENT_NAME_CHARS = 32
+
+
 def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def frontmatter_keys(skill_md: str) -> set[str]:
+    """The top-level keys of a SKILL.md's YAML frontmatter.
+
+    Regex rather than a YAML parse for the same reason validate.py does it
+    that way: this script runs on stdlib alone, and the question here is which
+    keys were declared, not what they mean.
+    """
+    text = skill_md.lstrip()
+    if not text.startswith("---"):
+        return set()
+    block, sep, _ = text[3:].partition("\n---")
+    if not sep:
+        return set()
+    return {m.group(1) for m in TOP_LEVEL_KEY_RE.finditer(block)}
+
+
+def skill_flavor(submission: dict, skill_md: str) -> str:
+    """Which frontmatter this skill carries — declared, else derived.
+
+    A publisher may state it outright. Most will not, so the default is read
+    off the file itself: a SKILL.md that uses none of Jarvis' own keys is one
+    that runs in any agent, and saying so is the whole point of the mark.
+    Deriving beats demanding — a required field would turn every existing
+    submission into a rejected one.
+    """
+    declared = submission.get("flavor")
+    if isinstance(declared, str) and declared.strip().lower() in SKILL_FLAVORS:
+        return declared.strip().lower()
+    return "jarvis" if frontmatter_keys(skill_md) & JARVIS_ONLY_KEYS else "portable"
+
+
+def compatible_agents(submission: dict) -> list[str]:
+    """The publisher's "also runs in" list, cleaned and bounded."""
+    raw = submission.get("compatible_agents")
+    if not isinstance(raw, list):
+        return []
+    cleaned: list[str] = []
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        name = " ".join(item.split())[:MAX_AGENT_NAME_CHARS].strip()
+        if name and name not in cleaned:
+            cleaned.append(name)
+        if len(cleaned) >= MAX_COMPATIBLE_AGENTS:
+            break
+    return cleaned
 
 
 def read_bundled_skills(plugin_dir: Path) -> list[dict]:
@@ -246,6 +330,7 @@ def main() -> int:
             if not skill_path.exists():
                 continue
             submission = read_json(ROOT / "submissions" / f"{name}.json")
+            skill_md = skill_path.read_text(encoding="utf-8")
             skills.append(
                 {
                     "name": name,
@@ -256,13 +341,19 @@ def main() -> int:
                     "published_at": meta.get("published_at"),
                     "categories": submission.get("categories", []),
                     "source_url": f"{TREE_URL}/skills/{name}",
+                    # Which frontmatter the file carries, and where else the
+                    # publisher says it runs. A portable skill is installable
+                    # with `npx skills add` into any agent that reads
+                    # SKILL.md, and the store shows that command beside ours.
+                    "flavor": skill_flavor(submission, skill_md),
+                    "compatible_agents": compatible_agents(submission),
                     # The instructions themselves, not a link to them. A
                     # linked file inherits the availability of whatever host
                     # serves it: on 2026-08-14 this repo went private while
                     # Pages kept serving this index, and every raw_url in a
                     # live feed answered 404 — the store listed skills it
                     # could not install. raw_url stays for older clients.
-                    "skill_md": skill_path.read_text(encoding="utf-8"),
+                    "skill_md": skill_md,
                     "raw_url": f"{RAW_URL}/skills/{name}/SKILL.md",
                     # A skill is usually one file, but the folder is what was
                     # published — so the folder is what the feed carries.

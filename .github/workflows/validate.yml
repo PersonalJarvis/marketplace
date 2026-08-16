@@ -47,6 +47,11 @@ jobs:
       # it, and reads that listing from the feed — so the listing is pinned.
       - name: Published file listing regression test
         run: python scripts/test_index_files.py
+      # The store shows `npx skills add` beside our own command, but only for
+      # the entries that really are portable — so the mark that decides it is
+      # pinned, derivation and bounds alike.
+      - name: Portability mark regression test
+        run: python scripts/test_portable_flavor.py
       # The upload endpoint and the app read rules.json instead of retyping
       # the limits. A stale copy would let them accept what CI rejects.
       - name: Published rules match the validator

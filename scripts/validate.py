@@ -590,6 +590,47 @@ def validate_skill(doc: dict, name: str, errors: Errors, path: Path) -> None:
     categories = doc.get("categories", [])
     if not isinstance(categories, list) or not all(isinstance(c, str) for c in categories):
         errors.add(path, "categories must be a list of strings")
+    validate_flavor(doc, errors, path)
+
+
+# Which frontmatter a skill declares. Optional and free to omit: build_index.py
+# derives it from the file itself, so an author who never heard of the field
+# still gets the right mark. Stating it is for the case where the derivation
+# would be wrong — a Jarvis-flavored file whose author also maintains it for
+# other agents, say. Mirrors SKILL_FLAVORS in
+# jarvis/marketplace/community_source.py and build_index.py.
+SKILL_FLAVORS = ("jarvis", "portable")
+
+# The publisher's "also runs in" list. Display-only text that lands in the
+# store UI, so it is bounded HERE too: the feed's own cleanup would silently
+# truncate, and a submitter deserves to be told instead.
+MAX_COMPATIBLE_AGENTS = 8
+MAX_AGENT_NAME_CHARS = 32
+
+
+def validate_flavor(doc: dict, errors: Errors, path: Path) -> None:
+    """The optional portability fields on a skill submission."""
+    flavor = doc.get("flavor")
+    if flavor is not None and (
+        not isinstance(flavor, str) or flavor not in SKILL_FLAVORS
+    ):
+        errors.add(path, f"flavor must be one of {list(SKILL_FLAVORS)} when set")
+
+    agents = doc.get("compatible_agents")
+    if agents is None:
+        return
+    if not isinstance(agents, list) or not all(isinstance(a, str) for a in agents):
+        errors.add(path, "compatible_agents must be a list of strings")
+        return
+    if len(agents) > MAX_COMPATIBLE_AGENTS:
+        errors.add(path, f"compatible_agents: at most {MAX_COMPATIBLE_AGENTS} entries")
+    for agent in agents:
+        if len(agent) > MAX_AGENT_NAME_CHARS:
+            errors.add(
+                path,
+                f"compatible_agents: {agent[:20]!r}… longer than "
+                f"{MAX_AGENT_NAME_CHARS} chars",
+            )
 
 
 def read_base_version(path: Path, base_ref: str) -> dict | None:
