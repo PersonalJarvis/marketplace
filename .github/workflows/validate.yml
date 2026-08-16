@@ -30,6 +30,11 @@ jobs:
       # pinned — above all that a fork cannot reach the trusted one.
       - name: Auto-merge gate regression test
         run: python scripts/test_gate.py
+      # An stdio submission runs on the machine of whoever installs it, and
+      # each allowed launcher has options that make it a general-purpose
+      # runner — so the ARGUMENTS are pinned, not just the launcher name.
+      - name: Stdio argument rules regression test
+        run: python scripts/test_stdio_arguments.py
       # A bundled skill can grant itself a risk tier or smuggle a payload,
       # and neither is visible in the manifest — so the rules are pinned.
       - name: Bundled skill rules regression test

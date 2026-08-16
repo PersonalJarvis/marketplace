@@ -58,6 +58,68 @@ TOKEN_LITERAL_RE = re.compile(r"[A-Za-z0-9_\-]{20,}")
 
 STDIO_LAUNCHERS = ("npx", "uvx", "docker")
 
+# The launcher name alone decides nothing: every one of the three allowed
+# launchers has options that turn it back into "run whatever I say".
+# `npx -p x@1.0.0 -c "curl … | sh"` runs a shell one-liner, `uvx --with evil`
+# installs a second package nobody reviewed, and `docker run -v /:/host`
+# hands the container the user's whole disk. So the ARGUMENTS are an
+# allowlist too, per launcher, and the package a launcher fetches must be a
+# pinned name from its own registry — never a git ref, a URL, or a path.
+#
+# The rule is positional: everything up to and including the package
+# specification belongs to the LAUNCHER and is checked; everything after it
+# is passed to the server the publisher wrote anyway, so checking it would
+# buy nothing.
+NPX_FLAGS = frozenset({"-y", "--yes"})
+UVX_FLAGS = frozenset({"--from"})  # takes a value, itself pinned
+DOCKER_FLAGS = frozenset({"-i", "--interactive", "--rm"})
+DOCKER_VALUE_FLAGS = frozenset({"-e", "--env"})  # NAME only — see below
+
+# npm: `pkg@1.2.3` or `@scope/pkg@1.2.3`. No `github:`, no `git+https://`,
+# no `file:`, no tarball URL — those are not registry packages and carry no
+# version anyone can pin.
+NPM_PIN_RE = re.compile(
+    r"^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*@\d+\.\d+\.\d+[0-9A-Za-z.+-]*$"
+)
+# PyPI: `pkg==1.2.3` (uv's own spelling) or `pkg@1.2.3`.
+PYPI_PIN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*(?:==|@)\d+\.\d+\.\d+[0-9A-Za-z.+-]*$")
+# A container image with an explicit version tag or a digest. `:latest` and a
+# bare name are both "whatever the publisher pushes next".
+IMAGE_TAG_RE = re.compile(r"^[a-z0-9][a-z0-9._/-]*:[0-9][0-9A-Za-z._-]*$")
+IMAGE_DIGEST_RE = re.compile(r"^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$")
+# Only a bare variable NAME may be handed to `docker -e`. `-e PATH=/evil`
+# would rewrite the container's environment from the manifest; the values a
+# plugin legitimately needs travel through the env block, which is checked.
+ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+# Variables that decide what runs, before the plugin's own first line does.
+# A manifest configures its own server; it does not get to re-point the
+# dynamic linker, the interpreter, or the PATH the launcher is resolved on.
+RESERVED_ENV_NAMES = frozenset(
+    {
+        "PATH",
+        "PATHEXT",
+        "LD_PRELOAD",
+        "LD_LIBRARY_PATH",
+        "LD_AUDIT",
+        "DYLD_INSERT_LIBRARIES",
+        "DYLD_LIBRARY_PATH",
+        "PYTHONPATH",
+        "PYTHONSTARTUP",
+        "PYTHONHOME",
+        "NODE_OPTIONS",
+        "NODE_PATH",
+        "NPM_CONFIG_REGISTRY",
+        "UV_INDEX_URL",
+        "UV_EXTRA_INDEX_URL",
+        "PIP_INDEX_URL",
+        "PIP_EXTRA_INDEX_URL",
+        "DOCKER_HOST",
+        "COMSPEC",
+        "SYSTEMROOT",
+        "WINDIR",
+    }
+)
+
 AUTH_MODES = (
     "pat_paste",
     "oauth_device_flow",
@@ -121,6 +183,110 @@ def reject_http_urls(value, where: str, errors: Errors, path: Path) -> None:
             reject_http_urls(sub, f"{where}[{index}]", errors, path)
 
 
+def validate_stdio_args(launcher: str, args: list[str]) -> str | None:
+    """Check the launcher half of an stdio argv against its own allowlist.
+
+    Returns the first problem as a sentence naming the offending argument, or
+    ``None`` when the argv is acceptable. The message ends up in the pull
+    request check and in the app's install dialog, so it says what to change
+    rather than that something was wrong.
+
+    Mirrors ``_validate_stdio_args`` in the app's agent_plugins_loader.py and
+    ``validateStdioArgs`` in the storefront's functions/_lib/validate.ts.
+    Change one, change all three.
+    """
+    if launcher == "npx":
+        index = 0
+        while index < len(args) and args[index].startswith("-"):
+            if args[index] not in NPX_FLAGS:
+                return (
+                    f"npx option {args[index]!r} is not allowed — a community "
+                    "package may only be launched as `npx -y <name>@<version>` "
+                    "(options like -p/-c can run arbitrary commands)"
+                )
+            index += 1
+        if index >= len(args):
+            return "npx needs a package to run, e.g. `npx -y my-mcp@1.2.0`"
+        if not NPM_PIN_RE.fullmatch(args[index]):
+            return (
+                f"{args[index]!r} is not a pinned npm package — community stdio "
+                "packages must name a registry package with an exact version "
+                "(`my-mcp@1.2.0`), never a git ref, URL or path"
+            )
+        return None
+
+    if launcher == "uvx":
+        index = 0
+        while index < len(args) and args[index].startswith("-"):
+            flag, sep, inline = args[index].partition("=")
+            if flag not in UVX_FLAGS:
+                return (
+                    f"uvx option {flag!r} is not allowed — a community package "
+                    "may only be launched as `uvx <name>==<version>` "
+                    "(options like --with install code nobody reviewed)"
+                )
+            if sep:
+                value, index = inline, index + 1
+            else:
+                if index + 1 >= len(args):
+                    return f"uvx option {flag!r} is missing its value"
+                value, index = args[index + 1], index + 2
+            if not PYPI_PIN_RE.fullmatch(value):
+                return (
+                    f"{value!r} is not a pinned PyPI package — use "
+                    "`--from my-mcp==1.2.0`, never a git ref, URL or path"
+                )
+            # `--from` names the package; what follows is the entry point.
+            return None
+        if index >= len(args):
+            return "uvx needs a package to run, e.g. `uvx my-mcp==1.2.0`"
+        if not PYPI_PIN_RE.fullmatch(args[index]):
+            return (
+                f"{args[index]!r} is not a pinned PyPI package — community stdio "
+                "packages must name a package with an exact version "
+                "(`my-mcp==1.2.0`), never a git ref, URL or path"
+            )
+        return None
+
+    # docker
+    if not args or args[0] != "run":
+        return "the only allowed docker subcommand is `run`"
+    index = 1
+    while index < len(args) and args[index].startswith("-"):
+        flag, sep, inline = args[index].partition("=")
+        if flag in DOCKER_VALUE_FLAGS:
+            if sep:
+                value, index = inline, index + 1
+            else:
+                if index + 1 >= len(args):
+                    return f"docker option {flag!r} is missing its value"
+                value, index = args[index + 1], index + 2
+            if not ENV_NAME_RE.fullmatch(value):
+                return (
+                    f"docker {flag} {value!r} must name a variable and nothing "
+                    "else — a plugin's own values belong in the env block, "
+                    "which is checked for smuggled credentials"
+                )
+            continue
+        if flag not in DOCKER_FLAGS:
+            return (
+                f"docker option {flag!r} is not allowed — a community container "
+                "runs as `docker run -i --rm <image>:<version>`; options like "
+                "-v/--mount/--privileged/--network would open the user's machine "
+                "to it"
+            )
+        index += 1
+    if index >= len(args):
+        return "docker needs an image to run, e.g. `docker run -i --rm my/mcp:1.2`"
+    image = args[index]
+    if not (IMAGE_TAG_RE.fullmatch(image) or IMAGE_DIGEST_RE.fullmatch(image)):
+        return (
+            f"{image!r} is not a pinned image — name an explicit version tag "
+            "(`my/mcp:1.2`) or a digest, never `latest` or a bare name"
+        )
+    return None
+
+
 def validate_mcp_json(name: str, mcp: dict, errors: Errors, path: Path) -> None:
     servers = mcp.get("mcpServers")
     if not isinstance(servers, dict) or not servers:
@@ -152,18 +318,41 @@ def validate_mcp_json(name: str, mcp: dict, errors: Errors, path: Path) -> None:
         launcher = launcher.removesuffix(".exe").removesuffix(".cmd")
         if launcher not in STDIO_LAUNCHERS:
             errors.add(path, f"mcp_json: launcher {command!r} not in allowlist {STDIO_LAUNCHERS}")
+            launcher = ""
+        if server.get("url"):
+            # One server entry, one transport. A stdio entry that also carries
+            # a url reads as a hosted server to anything that checks the url
+            # first and runs the command anyway — the two halves must never
+            # disagree about what this entry is.
+            errors.add(
+                path,
+                "mcp_json: a stdio server may not also declare a url — "
+                "publish either a local command or a hosted endpoint",
+            )
         args = server.get("args", [])
         if not isinstance(args, list) or not all(isinstance(a, str) for a in args):
             errors.add(path, "mcp_json: args must be strings")
             args = []
-        for arg in args:
-            if arg.endswith("@latest"):
-                errors.add(path, f"mcp_json: {arg!r} is unpinned — pin an exact version")
+        if launcher:
+            problem = validate_stdio_args(launcher, list(args))
+            if problem:
+                errors.add(path, f"mcp_json: {problem}")
         env = server.get("env", {})
         if not isinstance(env, dict):
             errors.add(path, "mcp_json: env must be an object")
             env = {}
         for key, value in env.items():
+            name_text = str(key)
+            if not ENV_NAME_RE.fullmatch(name_text) or name_text.upper() in RESERVED_ENV_NAMES:
+                # A manifest sets variables for ITS server, never for the
+                # machinery that starts it: PATH decides which binary `npx`
+                # even is, and the loader hooks run code before the server's
+                # first line does.
+                errors.add(
+                    path,
+                    f"mcp_json: env {name_text!r} is not a plugin variable — "
+                    "PATH and the loader/runtime hooks are off limits",
+                )
             if not isinstance(value, str) or not ENV_PLACEHOLDER_RE.fullmatch(value):
                 errors.add(path, f"mcp_json: env {key!r} must be a $plugin_… placeholder")
     elif server_type == "sse":

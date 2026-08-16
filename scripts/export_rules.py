@@ -68,14 +68,32 @@ def build_rules() -> dict:
             "env_placeholder": v.ENV_PLACEHOLDER_RE.pattern,
             "header_placeholder": v.HEADER_PLACEHOLDER_RE.pattern,
             "token_literal": v.TOKEN_LITERAL_RE.pattern,
+            "npm_pin": v.NPM_PIN_RE.pattern,
+            "pypi_pin": v.PYPI_PIN_RE.pattern,
+            "image_tag": v.IMAGE_TAG_RE.pattern,
+            "image_digest": v.IMAGE_DIGEST_RE.pattern,
+            "env_name": v.ENV_NAME_RE.pattern,
         },
         "forbidden_name_substrings": ["--", ".."],
         "secret_patterns": [pattern.pattern for pattern in v.SECRET_PATTERNS],
         "reserved": {
             "plugin_ids": sorted(v.RESERVED_PLUGIN_IDS),
             "skill_names": sorted(v.RESERVED_SKILL_NAMES),
+            # Variables a manifest may not set: they decide what runs before
+            # the plugin's own first line does.
+            "env_names": sorted(v.RESERVED_ENV_NAMES),
         },
         "stdio_launchers": sorted(v.STDIO_LAUNCHERS),
+        # The options each launcher may carry before its package
+        # specification. Everything after that belongs to the server the
+        # publisher wrote and is not checked. `docker_value` options take a
+        # bare variable NAME as their value.
+        "stdio_flags": {
+            "npx": sorted(v.NPX_FLAGS),
+            "uvx": sorted(v.UVX_FLAGS),
+            "docker": sorted(v.DOCKER_FLAGS),
+            "docker_value": sorted(v.DOCKER_VALUE_FLAGS),
+        },
         "auth_modes": sorted(v.AUTH_MODES),
         "wallpaper_licenses": sorted(v.WALLPAPER_LICENSES),
         "plugin_schema": v.PLUGIN_SCHEMA,

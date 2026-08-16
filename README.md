@@ -30,6 +30,22 @@ plugins/<name>/…  skills/<name>/SKILL.md  registry.json  ◄── expansion (
    stdio launcher allowlist with pinned versions, no credentials anywhere,
    size limits (see `scripts/validate.py` — the app re-enforces the same
    rules at install time).
+
+   The stdio allowlist covers the **arguments**, not just the launcher name,
+   because each allowed launcher has options that run anything at all. In
+   practice a stdio server must look like one of these, and the package it
+   names must be a pinned name from its own registry — never a git ref, a
+   URL, or a path:
+
+   ```
+   npx -y my-mcp@1.2.0
+   uvx my-mcp==1.2.0                 # or: uvx --from my-mcp==1.2.0 my-server
+   docker run -i --rm my/mcp:1.2     # -e passes a variable NAME, no value
+   ```
+
+   Arguments after the package belong to your server and are not checked.
+   `env` keys must be your own variables (`PATH`, `LD_PRELOAD`, `NODE_OPTIONS`
+   and friends are refused) with `$plugin_…` placeholders as their values.
 3. The `automerge` gate (trusted code, never executes PR content) verifies
    the PR changes exactly that one file and that the publisher is proven —
    either because you opened the pull request yourself (`publisher` and

@@ -22,15 +22,43 @@
     "max_wallpaper_title_chars": 80
   },
   "patterns": {
+    "env_name": "^[A-Za-z_][A-Za-z0-9_]*$",
     "env_placeholder": "^\\$(?:plugin_[a-z0-9_.-]+|\\{plugin_[a-z0-9_.-]+\\})$",
     "github_login": "^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$",
     "header_placeholder": "\\$(?:plugin_[a-z0-9_.-]+|\\{plugin_[a-z0-9_.-]+\\})",
+    "image_digest": "^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$",
+    "image_tag": "^[a-z0-9][a-z0-9._/-]*:[0-9][0-9A-Za-z._-]*$",
     "name": "^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$",
+    "npm_pin": "^(?:@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*@\\d+\\.\\d+\\.\\d+[0-9A-Za-z.+-]*$",
+    "pypi_pin": "^[A-Za-z0-9][A-Za-z0-9._-]*(?:==|@)\\d+\\.\\d+\\.\\d+[0-9A-Za-z.+-]*$",
     "semver": "^\\d+\\.\\d+\\.\\d+$",
     "token_literal": "[A-Za-z0-9_\\-]{20,}"
   },
   "plugin_schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "reserved": {
+    "env_names": [
+      "COMSPEC",
+      "DOCKER_HOST",
+      "DYLD_INSERT_LIBRARIES",
+      "DYLD_LIBRARY_PATH",
+      "LD_AUDIT",
+      "LD_LIBRARY_PATH",
+      "LD_PRELOAD",
+      "NODE_OPTIONS",
+      "NODE_PATH",
+      "NPM_CONFIG_REGISTRY",
+      "PATH",
+      "PATHEXT",
+      "PIP_EXTRA_INDEX_URL",
+      "PIP_INDEX_URL",
+      "PYTHONHOME",
+      "PYTHONPATH",
+      "PYTHONSTARTUP",
+      "SYSTEMROOT",
+      "UV_EXTRA_INDEX_URL",
+      "UV_INDEX_URL",
+      "WINDIR"
+    ],
     "plugin_ids": [
       "airtable",
       "asana",
@@ -104,6 +132,24 @@
     "-----BEGIN [A-Z ]*PRIVATE KEY-----",
     "eyJ[A-Za-z0-9_\\-]{20,}\\.eyJ[A-Za-z0-9_\\-]{20,}"
   ],
+  "stdio_flags": {
+    "docker": [
+      "--interactive",
+      "--rm",
+      "-i"
+    ],
+    "docker_value": [
+      "--env",
+      "-e"
+    ],
+    "npx": [
+      "--yes",
+      "-y"
+    ],
+    "uvx": [
+      "--from"
+    ]
+  },
   "stdio_launchers": [
     "docker",
     "npx",
