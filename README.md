@@ -88,6 +88,22 @@ component — an entry that only collects a token is refused.
 full `skill_md` (a `SKILL.md` with YAML frontmatter — the app validates it
 on install and shows it to the user before it can run).
 
+A skill does **not** have to be written for Personal Jarvis. The frontmatter
+only has to carry `name` and `description`; anything beyond that may be your
+agent's own vocabulary (`allowed-tools`, `model`, …). Such an entry is marked
+**portable**, and the store shows the open installer beside our own:
+
+```
+jarvis marketplace install <name>              # Personal Jarvis
+npx skills add PersonalJarvis/marketplace --skill <name>   # any other agent
+```
+
+The mark is derived from your file — a SKILL.md using none of Jarvis' own
+keys (`schema_version`, `triggers`, `execution`, …) is portable — so there is
+nothing to declare. Two optional fields override or enrich it:
+`"flavor": "jarvis" | "portable"` and `"compatible_agents": ["Claude Code",
+"Cursor"]` (up to 8 names, shown on the card).
+
 ### Bundling skills with a plugin
 
 A plugin may ship the instructions for using it, which is what the Agent

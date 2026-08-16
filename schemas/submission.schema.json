@@ -74,6 +74,16 @@
       "type": "string",
       "description": "kind=skill: the complete SKILL.md (YAML frontmatter + instructions)"
     },
+    "flavor": {
+      "enum": ["jarvis", "portable"],
+      "description": "kind=skill: which frontmatter the SKILL.md carries — 'jarvis' uses the app's schema (triggers, execution mode), 'portable' is a plain Agent Skill that also installs into other agents via `npx skills add`. Optional: derived from the file when omitted."
+    },
+    "compatible_agents": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string", "maxLength": 32 },
+      "description": "kind=skill: agents you have run this skill in, e.g. ['Claude Code', 'Cursor']. Display only — shown on the store card."
+    },
     "license": {
       "enum": ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"],
       "description": "kind=wallpaper: the license the image is redistributed under — the feed serves the file to every install, so it must permit exactly that"
