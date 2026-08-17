@@ -52,6 +52,11 @@ jobs:
       # pinned, derivation and bounds alike.
       - name: Portability mark regression test
         run: python scripts/test_portable_flavor.py
+      # A login is a display name and can be re-registered by a stranger, so
+      # the feed has to carry the account NUMBER a consumer joins on. Pinned
+      # because losing it again is invisible until somebody renames.
+      - name: Publisher account id reaches the feed
+        run: python scripts/test_publisher_id.py
       # The upload endpoint and the app read rules.json instead of retyping
       # the limits. A stale copy would let them accept what CI rejects.
       - name: Published rules match the validator

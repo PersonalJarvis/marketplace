@@ -284,6 +284,14 @@ def main() -> int:
                 "title": submission.get("title", name),
                 "description": submission.get("description", ""),
                 "publisher": meta.get("publisher"),
+                # The account, not the name it currently goes by. A GitHub login
+                # can be renamed and the freed handle re-registered by a
+                # stranger, so a consumer that joins entries to a person by
+                # `publisher` alone hands one account's work to another the day
+                # somebody renames. The ledger has keyed ownership on this number
+                # since the beginning (automerge_gate.py); it stayed out of the
+                # feed only because nothing downstream asked for it yet.
+                "publisher_id": meta.get("publisher_id"),
                 "version": meta.get("version"),
                 "published_at": meta.get("published_at"),
                 "license": submission.get("license"),
@@ -312,6 +320,8 @@ def main() -> int:
                 {
                     "name": name,
                     "publisher": meta.get("publisher"),
+                    # See the wallpaper lane: the stable half of the identity.
+                    "publisher_id": meta.get("publisher_id"),
                     "version": meta.get("version"),
                     "published_at": meta.get("published_at"),
                     "source_url": f"{TREE_URL}/plugins/{name}",
@@ -337,6 +347,8 @@ def main() -> int:
                     "title": submission.get("title", name),
                     "description": submission.get("description", ""),
                     "publisher": meta.get("publisher"),
+                    # See the wallpaper lane: the stable half of the identity.
+                    "publisher_id": meta.get("publisher_id"),
                     "version": meta.get("version"),
                     "published_at": meta.get("published_at"),
                     "categories": submission.get("categories", []),
