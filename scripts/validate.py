@@ -37,16 +37,6 @@ MAX_FILE_BYTES = 128 * 1024
 MAX_SKILL_BYTES = 64 * 1024
 MAX_BUNDLED_SKILLS = 10
 MAX_DESCRIPTION_CHARS = 500
-MAX_WALLPAPER_TITLE_CHARS = 80
-# Ceiling for the image beside a wallpaper submission. A 4K WebP at gallery
-# quality is well under 2 MB; 8 MB refuses a mis-committed original without
-# refusing any legitimate wallpaper.
-MAX_WALLPAPER_BYTES = 8 * 1024 * 1024
-
-# Licenses a community wallpaper may carry. Redistribution is the whole
-# point of the lane — the feed serves the file to every install — so only
-# licenses that permit exactly that are accepted.
-WALLPAPER_LICENSES = ("CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0")
 
 # Agent Plugins v1.0.0 name rules.
 NAME_RE = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$")
@@ -502,81 +492,6 @@ def validate_plugin(doc: dict, name: str, errors: Errors, path: Path) -> None:
     reject_http_urls(doc, "submission", errors, path)
 
 
-# The containers a browser can actually produce: not every engine encodes
-# WebP, so an upload may deliver JPEG or PNG. The published SITE still serves
-# WebP only — the publish build re-encodes whatever arrived here.
-WALLPAPER_MAGIC = {
-    "wallpaper.webp": (b"RIFF", b"WEBP"),
-    "wallpaper.jpg": (b"\xff\xd8\xff", None),
-    "wallpaper.png": (b"\x89PNG", None),
-}
-
-
-def wallpaper_image_paths(name: str) -> list[Path]:
-    """The image files present for a wallpaper submission (should be one)."""
-    folder = ROOT / "wallpapers" / name
-    return [folder / filename for filename in WALLPAPER_MAGIC if (folder / filename).is_file()]
-
-
-def validate_wallpaper(doc: dict, name: str, errors: Errors, path: Path) -> None:
-    """kind=wallpaper: metadata rules plus the image file beside it.
-
-    Nobody looks at the picture before it publishes, and no pattern list can
-    recognize a hateful or illegal one — so what CI settles here is strictly
-    everything a machine CAN settle: the metadata shape and that the
-    committed file is a plausibly-sized image. Judging the depiction is left
-    to reports after the fact, which the storefront's delist path answers.
-
-    The publish build re-encodes the image (whatever its container) before it
-    reaches the site, so the served bytes are always freshly produced, never
-    the committed file.
-    """
-    title = doc.get("title")
-    if not isinstance(title, str) or not title.strip():
-        errors.add(path, "title is required for kind=wallpaper")
-    elif len(title) > MAX_WALLPAPER_TITLE_CHARS:
-        errors.add(path, f"title longer than {MAX_WALLPAPER_TITLE_CHARS} chars")
-    description = doc.get("description")
-    if description is not None:
-        if not isinstance(description, str):
-            errors.add(path, "description must be a string")
-        elif len(description) > MAX_DESCRIPTION_CHARS:
-            errors.add(path, f"description longer than {MAX_DESCRIPTION_CHARS} chars")
-    license_id = doc.get("license")
-    if license_id not in WALLPAPER_LICENSES:
-        errors.add(
-            path,
-            f"license must be one of {WALLPAPER_LICENSES} — the feed "
-            "redistributes the file, so the license must allow that",
-        )
-    theme = doc.get("theme")
-    if theme is not None and theme not in ("light", "dark"):
-        errors.add(path, "theme must be 'light', 'dark', or omitted")
-
-    images = wallpaper_image_paths(name)
-    if not images:
-        errors.add(
-            path,
-            f"wallpapers/{name}/wallpaper.(webp|jpg|png) is missing — the "
-            "upload form commits the image beside this submission",
-        )
-    elif len(images) > 1:
-        errors.add(path, "exactly one image file may exist per wallpaper")
-    else:
-        image = images[0]
-        size = image.stat().st_size
-        if size > MAX_WALLPAPER_BYTES:
-            errors.add(path, f"image is {size} bytes — larger than {MAX_WALLPAPER_BYTES}")
-        with image.open("rb") as handle:
-            header = handle.read(12)
-        prefix, riff_tag = WALLPAPER_MAGIC[image.name]
-        magic_ok = header.startswith(prefix) and (riff_tag is None or header[8:12] == riff_tag)
-        if not magic_ok:
-            errors.add(path, f"{image.name} does not carry its container's magic bytes")
-
-    reject_http_urls(doc, "submission", errors, path)
-
-
 def validate_skill(doc: dict, name: str, errors: Errors, path: Path) -> None:
     validate_skill_document(doc.get("skill_md"), name, errors, path, "skill_md")
     title = doc.get("title")
@@ -693,8 +608,8 @@ def validate_file(path: Path, errors: Errors, base_ref: str | None) -> None:
     if path.name != f"{name}.json":
         errors.add(path, f"file must be named {name}.json")
     kind = doc.get("kind")
-    if kind not in ("plugin", "skill", "wallpaper"):
-        errors.add(path, "kind must be 'plugin', 'skill' or 'wallpaper'")
+    if kind not in ("plugin", "skill"):
+        errors.add(path, "kind must be 'plugin' or 'skill'")
         return
     if kind == "plugin" and name in RESERVED_PLUGIN_IDS:
         errors.add(path, f"{name!r} is a built-in Personal Jarvis plugin id — reserved")
@@ -713,8 +628,6 @@ def validate_file(path: Path, errors: Errors, base_ref: str | None) -> None:
 
     if kind == "plugin":
         validate_plugin(doc, name, errors, path)
-    elif kind == "wallpaper":
-        validate_wallpaper(doc, name, errors, path)
     else:
         validate_skill(doc, name, errors, path)
 

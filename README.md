@@ -144,41 +144,13 @@ Two limits, enforced by CI and again by the app:
   without asking the user, and nothing here is reviewed by a human — the
   built-in default applies instead.
 
-## Wallpapers
-
-Wallpapers publish automatically, like everything above. They arrive through
-the storefront's upload form, which commits the pair
-`submissions/<name>.json` + `wallpapers/<name>/wallpaper.webp` here in one
-go (`kind: "wallpaper"`, `title`, a redistribution license out of CC0-1.0 /
-CC-BY-4.0 / CC-BY-SA-4.0, optional `theme`). Because a pull request can
-carry only the listing and never the image beside it, a wallpaper PR opened
-directly does not auto-merge (`automerge_gate.py`).
-
-Uploading requires a GitHub sign-in, a daily per-account quota applies, and
-the uploader states on the record that they hold the rights and the image is
-legal to publish. Nobody looks at the picture first — the safeguard is
-removal after the fact: every detail page carries a report link, and a
-maintainer delists a confirmed violation in one click from
-`personaljarvis.ai/marketplace/wallpapers/moderate`, which drops it from the
-feed with the next build.
-
-The publish build re-encodes every image and derives a grid thumbnail
-(`build_index.py`), so the site serves freshly-produced bytes — EXIF,
-appended payloads and forged headers do not survive — from
-`…/wallpapers/<name>/wallpaper.webp` and `…/thumb.webp` on this Pages site.
-The app imports a wallpaper with one click (or
-`jarvis marketplace install <name>`); it lands in the wallpaper picker
-under "Yours".
-
 ## Trust model, stated plainly
 
 Nothing here is reviewed by a human before it is listed. The automated
 checks stop credential smuggling, plaintext endpoints, unpinned code
 execution, and name hijacking — they cannot judge whether a service is
-trustworthy, and no check at all can judge what a picture depicts. The app
-therefore shows every community plugin and skill as unreviewed and displays
-the exact endpoint or command before installing.
+trustworthy. The app therefore shows every community plugin and skill as
+unreviewed and displays the exact endpoint or command before installing.
 
 What replaces prior review is speed afterwards: report a listing by opening
-an issue and it is delisted within minutes of being confirmed. If you are
-reporting an image, say so in the title — those are handled first.
+an issue and it is delisted within minutes of being confirmed.

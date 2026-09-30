@@ -17,9 +17,7 @@
     "max_bundled_skills": 10,
     "max_description_chars": 500,
     "max_file_bytes": 131072,
-    "max_skill_bytes": 65536,
-    "max_wallpaper_bytes": 8388608,
-    "max_wallpaper_title_chars": 80
+    "max_skill_bytes": 65536
   },
   "patterns": {
     "env_name": "^[A-Za-z_][A-Za-z0-9_]*$",
@@ -154,10 +152,5 @@
     "docker",
     "npx",
     "uvx"
-  ],
-  "wallpaper_licenses": [
-    "CC-BY-4.0",
-    "CC-BY-SA-4.0",
-    "CC0-1.0"
   ]
 }

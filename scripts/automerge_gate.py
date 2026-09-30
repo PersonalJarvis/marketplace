@@ -163,23 +163,6 @@ def main() -> int:
     submission = json.loads((ROOT / path).read_bytes().decode("utf-8"))
     publisher_id = account_id(submission)
 
-    if submission.get("kind") == "wallpaper":
-        # Wallpapers publish through the storefront's upload form, which
-        # commits the image and its submission together. A wallpaper PR
-        # therefore cannot be complete on this path: the one-file rule above
-        # admits only the JSON, and validate.py needs the image beside it.
-        # Rather than merge a listing whose picture is missing, say so.
-        comment(
-            repo,
-            pr_number,
-            "Wallpapers publish through the storefront's upload form "
-            "(personaljarvis.ai/marketplace/wallpapers/submit), which commits "
-            "the image and its listing together — a pull request can only "
-            "carry one of the two, so this one does not merge automatically.",
-        )
-        print("not eligible: wallpapers publish through the upload form")
-        return 0
-
     if trusted_branch(repo, pr_number, pr_author):
         # The branch is inside this repo and the App's bot opened the PR, so
         # the publisher fields came from a verified session on our endpoint.

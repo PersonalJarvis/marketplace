@@ -69,11 +69,6 @@ def main() -> int:
                 changed |= write_if_changed(
                     target / EXTENSION_DIR / "usage-card.md", doc["usage_card"]
                 )
-        elif kind == "wallpaper":
-            # Nothing to derive: the upload form committed the image at
-            # wallpapers/<name>/wallpaper.webp beside the submission, and the
-            # site build re-encodes it into _site. Only the ledger moves.
-            pass
         else:
             changed |= write_if_changed(ROOT / "skills" / name / "SKILL.md", doc["skill_md"])
 

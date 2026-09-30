@@ -1,35 +1,7 @@
 {
-  "flooded-observatory": {
-    "kind": "wallpaper",
-    "published_at": "2026-08-15T09:08:44Z",
-    "publisher": "rubenluetke10-beep",
-    "publisher_id": 226271791,
-    "version": "1.0.0"
-  },
   "humanizer": {
     "kind": "skill",
     "published_at": "2026-08-23T07:16:10Z",
-    "publisher": "rubenluetke10-beep",
-    "publisher_id": 226271791,
-    "version": "1.0.0"
-  },
-  "mallorcan-stone-courtyard": {
-    "kind": "wallpaper",
-    "published_at": "2026-08-15T09:08:44Z",
-    "publisher": "rubenluetke10-beep",
-    "publisher_id": 226271791,
-    "version": "1.0.0"
-  },
-  "photorealistic-bmw-2k-202608171400": {
-    "kind": "wallpaper",
-    "published_at": "2026-08-17T12:02:17Z",
-    "publisher": "Harald1306",
-    "publisher_id": 292015160,
-    "version": "1.0.0"
-  },
-  "rain-antenna-city": {
-    "kind": "wallpaper",
-    "published_at": "2026-08-15T09:08:44Z",
     "publisher": "rubenluetke10-beep",
     "publisher_id": 226271791,
     "version": "1.0.0"
@@ -44,20 +16,6 @@
   "three-bullet-brief": {
     "kind": "skill",
     "published_at": "2026-08-12T15:01:23Z",
-    "publisher": "rubenluetke10-beep",
-    "publisher_id": 226271791,
-    "version": "1.0.0"
-  },
-  "user-capturing-selfie-image-2k-202608171147": {
-    "kind": "wallpaper",
-    "published_at": "2026-08-17T09:48:37Z",
-    "publisher": "rubenluetke10-beep",
-    "publisher_id": 226271791,
-    "version": "1.0.0"
-  },
-  "woman-taking-selfie-in-bikini-202608171127": {
-    "kind": "wallpaper",
-    "published_at": "2026-08-17T09:28:51Z",
     "publisher": "rubenluetke10-beep",
     "publisher_id": 226271791,
     "version": "1.0.0"
