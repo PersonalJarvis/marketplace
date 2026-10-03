@@ -1,0 +1,52 @@
+# The upload door without a fork: a submission that arrives as an ISSUE.
+#
+# The Personal Jarvis app opens such an issue for the signed-in user (GitHub
+# device sign-in on the marketplace App), and the "Publish to the marketplace"
+# issue form does the same for anyone in a browser. scripts/intake.py reads
+# the issue body as data, takes the publisher from the issue's author, runs
+# the same validator every pull request meets, and publishes on green.
+#
+# Safety: `issues` events always run THIS file from the default branch, so an
+# issue can never change what runs here. The body reaches the script through
+# the event payload file only — it is never interpolated into a shell line.
+name: intake
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: write
+  issues: write
+  # Starts publish.yml after a commit (a push made with the Actions token
+  # does not trigger workflows on its own).
+  actions: write
+
+# One submission at a time: two publishes racing for main would make the
+# second push fail, and the ownership check must see the first one's result.
+concurrency:
+  group: intake
+  cancel-in-progress: false
+
+jobs:
+  intake:
+    # Cheap pre-filter; intake.py re-checks both conditions itself.
+    if: >-
+      github.event.issue.pull_request == null &&
+      (startsWith(github.event.issue.title, '[publish]') ||
+       startsWith(github.event.issue.title, '[Publish]') ||
+       contains(github.event.issue.body, '<!-- jarvis-marketplace-submission -->'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate and publish the submission
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: python scripts/intake.py

@@ -3,7 +3,8 @@
 
 Output (default ``_site/``):
 - ``index.json``  — the single feed Personal Jarvis fetches (community
-  plugins with embedded manifests + skills with raw download URLs). The
+  plugins with embedded manifests, skills with raw download URLs, and agent
+  templates with the template embedded). The
   storefront on personaljarvis.ai reads the SAME file client-side.
 - ``rules.json``  — the generated submission rules, published so the upload
   endpoint and the app can read the limits instead of retyping them
@@ -12,7 +13,8 @@ Output (default ``_site/``):
   the Pages URL directly.
 
 Keep the wire shape in sync with jarvis/marketplace/community_source.py
-(CommunityIndex / CommunityPluginEntry / CommunitySkillEntry).
+(CommunityIndex / CommunityPluginEntry / CommunitySkillEntry /
+CommunityAgentEntry).
 """
 
 from __future__ import annotations
@@ -202,7 +204,7 @@ def main() -> int:
     if registry_path.exists():
         registry = read_json(registry_path)
 
-    plugins, skills = [], []
+    plugins, skills, agents = [], [], []
     for name, meta in sorted(registry.items()):
         if meta.get("kind") == "plugin":
             plugin_dir = ROOT / "plugins" / name
@@ -273,6 +275,31 @@ def main() -> int:
                 }
             )
 
+        elif meta.get("kind") == "agent":
+            agent_path = ROOT / "agents" / name / "agent.json"
+            if not agent_path.exists():
+                continue
+            submission = read_json(ROOT / "submissions" / f"{name}.json")
+            agents.append(
+                {
+                    "name": name,
+                    "title": submission.get("title", name),
+                    "description": submission.get("description", ""),
+                    "publisher": meta.get("publisher"),
+                    # See the plugin branch: the stable half of the identity.
+                    "publisher_id": meta.get("publisher_id"),
+                    "version": meta.get("version"),
+                    "published_at": meta.get("published_at"),
+                    "categories": submission.get("categories", []),
+                    "source_url": f"{TREE_URL}/agents/{name}",
+                    # The template itself, embedded for the same reason the
+                    # skill body is: installing must not depend on a second
+                    # host being up.
+                    "agent": read_json(agent_path),
+                    "files": collect_files(ROOT / "agents" / name),
+                }
+            )
+
     index = {
         # Monotonic enough for cache-busting: the workflow run number, or a
         # timestamp when built locally.
@@ -281,6 +308,7 @@ def main() -> int:
         "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "plugins": plugins,
         "skills": skills,
+        "agents": agents,
     }
 
     out.mkdir(parents=True, exist_ok=True)
@@ -298,7 +326,10 @@ def main() -> int:
     else:
         print("WARNING: rules.json missing — run scripts/export_rules.py", file=sys.stderr)
 
-    print(f"index: {len(plugins)} plugin(s), {len(skills)} skill(s) -> {out / 'index.json'}")
+    print(
+        f"index: {len(plugins)} plugin(s), {len(skills)} skill(s), "
+        f"{len(agents)} agent(s) -> {out / 'index.json'}"
+    )
     return 0
 
 

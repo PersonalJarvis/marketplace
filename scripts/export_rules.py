@@ -58,6 +58,10 @@ def build_rules() -> dict:
             "max_skill_bytes": v.MAX_SKILL_BYTES,
             "max_bundled_skills": v.MAX_BUNDLED_SKILLS,
             "max_description_chars": v.MAX_DESCRIPTION_CHARS,
+            "max_agent_instructions_bytes": v.MAX_AGENT_INSTRUCTIONS_BYTES,
+            "max_agent_name_chars": v.MAX_AGENT_NAME_CHARS,
+            "max_agent_title_chars": v.MAX_AGENT_TITLE_CHARS,
+            "max_agent_capabilities": v.MAX_AGENT_CAPABILITIES,
         },
         "patterns": {
             "name": v.NAME_RE.pattern,
@@ -71,6 +75,17 @@ def build_rules() -> dict:
             "image_tag": v.IMAGE_TAG_RE.pattern,
             "image_digest": v.IMAGE_DIGEST_RE.pattern,
             "env_name": v.ENV_NAME_RE.pattern,
+            "agent_name": v.AGENT_NAME_RE.pattern,
+            "capability_id": v.CAPABILITY_ID_RE.pattern,
+            "home_path": v.HOME_PATH_RE.pattern,
+        },
+        # kind=agent: the template fields that travel, and the ones refused
+        # with the reason the error message gives.
+        "agent_template": {
+            "schema": v.AGENT_TEMPLATE_SCHEMA,
+            "keys": sorted(v.AGENT_KEYS),
+            "forbidden_keys": dict(sorted(v.AGENT_FORBIDDEN_KEYS.items())),
+            "tiers": list(v.AGENT_TIERS),
         },
         "forbidden_name_substrings": ["--", ".."],
         "secret_patterns": [pattern.pattern for pattern in v.SECRET_PATTERNS],

@@ -8,6 +8,8 @@ Runs on main after every merge (publish workflow). For each
   ``io.github.personaljarvis/usage-card.md``) per the Agent Plugins v1.0.0
   packaging standard.
 - kind=skill  → ``skills/<name>/SKILL.md`` (the file the app downloads).
+- kind=agent  → ``agents/<name>/agent.json`` (the agent template the app
+  installs as a new teammate).
 
 ``registry.json`` records name → {kind, publisher, version, published_at};
 it is the ownership ledger the auto-merge gate enforces. ``published_at`` is
@@ -69,6 +71,8 @@ def main() -> int:
                 changed |= write_if_changed(
                     target / EXTENSION_DIR / "usage-card.md", doc["usage_card"]
                 )
+        elif kind == "agent":
+            changed |= write_if_changed(ROOT / "agents" / name / "agent.json", dump(doc["agent"]))
         else:
             changed |= write_if_changed(ROOT / "skills" / name / "SKILL.md", doc["skill_md"])
 

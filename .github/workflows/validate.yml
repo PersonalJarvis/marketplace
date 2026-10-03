@@ -53,6 +53,14 @@ jobs:
       # because losing it again is invisible until somebody renames.
       - name: Publisher account id reaches the feed
         run: python scripts/test_publisher_id.py
+      # An agent template is installed on a stranger's machine with no review,
+      # so what it may NOT carry (accounts, paths, approval bypasses) is pinned.
+      - name: Agent template rules regression test
+        run: python scripts/test_agents.py
+      # The issue intake publishes with no human in the loop; the publisher
+      # must be the issue's author, never what the JSON claims.
+      - name: Issue intake regression test
+        run: python scripts/test_intake.py
       # The upload endpoint and the app read rules.json instead of retyping
       # the limits. A stale copy would let them accept what CI rejects.
       - name: Published rules match the validator
