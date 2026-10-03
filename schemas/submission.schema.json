@@ -5,7 +5,7 @@
   "type": "object",
   "required": ["kind", "name", "publisher", "version"],
   "properties": {
-    "kind": { "enum": ["plugin", "skill"] },
+    "kind": { "enum": ["plugin", "skill", "agent"] },
     "name": {
       "type": "string",
       "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$",
@@ -83,9 +83,35 @@
       "maxItems": 8,
       "items": { "type": "string", "maxLength": 32 },
       "description": "kind=skill: agents you have run this skill in, e.g. ['Claude Code', 'Cursor']. Display only — shown on the store card."
+    },
+    "agent": {
+      "type": "object",
+      "description": "kind=agent: the agent template — an allowlist (see README, Submission format). Never accounts, paths, models or permission widenings.",
+      "required": ["schema", "name", "instructions"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": { "const": 1 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "title": { "type": "string", "maxLength": 120 },
+        "instructions": { "type": "string", "description": "Standing instructions (Markdown), at most 20000 bytes" },
+        "tier": { "enum": ["specialist", "orchestrator"] },
+        "effort": { "type": "string", "pattern": "^[a-z]{0,16}$" },
+        "focus": { "type": "array", "items": { "type": "string" }, "maxItems": 60 },
+        "grant_mode": { "enum": ["all", "allowlist"] },
+        "grants": { "type": "array", "items": { "type": "string" }, "maxItems": 60 },
+        "denies": { "type": "array", "items": { "type": "string" }, "maxItems": 60 },
+        "skills": { "type": ["array", "null"], "items": { "type": "string" }, "maxItems": 60 },
+        "require_approval": { "type": "array", "items": { "type": "string" }, "maxItems": 60 },
+        "knowledge_scope": { "enum": ["shared", "own"] },
+        "avatar": { "type": "object", "description": "Figure recipe: catalog ids and #rrggbb colours only" }
+      }
     }
   },
   "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "agent" } } },
+      "then": { "required": ["title", "description", "agent"] }
+    },
     {
       "if": { "properties": { "kind": { "const": "plugin" } } },
       "then": { "required": ["plugin_json"] }

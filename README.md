@@ -1,19 +1,23 @@
 # Personal Jarvis Marketplace
 
 The community registry for [Personal Jarvis](https://github.com/PersonalJarvis/PersonalJarvis)
-plugins and skills. Anyone can publish; every submission that passes the
-automated checks is listed — there is no human review queue. Users see a
-"Community · not reviewed" badge and an explicit consent dialog in the app
-before anything is installed.
+plugins, skills and **agent templates**. Anyone can publish; every submission
+that passes the automated checks is listed — there is no human review queue.
+Users see a "Community · not reviewed" badge and an explicit consent dialog in
+the app before anything is installed.
 
-- **Browse:** in the app under **Plugins → Community**. A storefront browse
-  page is in build.
-- **Publish:** open a pull request that adds one `submissions/<name>.json`
-  (see [Submission format](#submission-format)). A sign-in-with-GitHub
-  upload form that builds the file for you is in build — until it ships,
-  the pull request is the way in.
+- **Browse:** in the app under **Plugins → Community**.
+- **Publish from the app:** open an agent, press **Share**, sign in with
+  GitHub and press **Publish**. The app files the submission as an issue on
+  this repository under your account; the checks run and publish it within a
+  minute or two.
+- **Publish from the browser:** open a
+  [Publish to the marketplace](../../issues/new?template=publish.yml) issue
+  and paste the submission JSON. Same checks, same result.
+- **Publish with a pull request:** add one `submissions/<name>.json`
+  (see [Submission format](#submission-format)).
 - **Feed:** the compiled [`index.json`](https://personaljarvis.github.io/marketplace/index.json)
-  is what the app and the storefront read.
+  is what the app reads.
 
 ## How publishing works
 
@@ -57,6 +61,19 @@ plugins/<name>/…  skills/<name>/SKILL.md  registry.json  ◄── expansion (
    [Agent Plugins v1.0.0](https://agent-plugins.org/) package under
    `plugins/` (or `skills/<name>/SKILL.md`), records ownership in
    `registry.json`, compiles `index.json`, and deploys it to Pages.
+
+## Publishing through an issue
+
+`scripts/intake.py` (workflow `intake.yml`) handles issues whose title starts
+with `[publish]`. It reads the first fenced JSON block in the issue body,
+**replaces `publisher` and `publisher_id` with the account that opened the
+issue** — GitHub authenticated that account, the JSON proves nothing — and
+runs the same `validate.py` every pull request meets, ownership and version
+rules included. Green: the bot commits `submissions/<name>.json` to `main`,
+starts `publish.yml`, answers with the install line and closes the issue.
+Red: it answers with what to change and labels the issue `needs-changes`;
+editing the issue runs the checks again. Issue bodies are data: nothing in
+them is executed, and the workflow always runs from `main`.
 
 ## Ownership and updates
 
@@ -119,6 +136,39 @@ keys (`schema_version`, `triggers`, `execution`, …) is portable — so there i
 nothing to declare. Two optional fields override or enrich it:
 `"flavor": "jarvis" | "portable"` and `"compatible_agents": ["Claude Code",
 "Cursor"]` (up to 8 names, shown on the card).
+
+**Agent** (`kind: "agent"`): `title`, `description` (the one-paragraph
+summary on the store card), `categories`, and `agent` — the template of one
+Personal Jarvis agent:
+
+```json
+"agent": {
+  "schema": 1,
+  "name": "Inbox Butler",
+  "title": "Keeps the inbox at zero",
+  "instructions": "You own the inbox. Every morning …",
+  "tier": "specialist",
+  "effort": "medium",
+  "focus": ["plugin:gmail", "core:browser"],
+  "grant_mode": "all",
+  "require_approval": ["plugin:gmail:send"],
+  "knowledge_scope": "shared",
+  "avatar": { "contract": 1, "archetype": "biped", "base": "rogue", "parts": {} }
+}
+```
+
+A template is the agent's **design**, never its operation. The fields above
+are an allowlist and anything else is refused. These are refused by name,
+because they would either point at the author's machine or let a stranger's
+template decide what runs without asking on yours: `account_id`, `provider`,
+`model`, `workspace_dir`, `computer_id`, `permission_ceiling`,
+`approval_mode`, `approval_rules` / `always_allow`, `daily_budget_usd`,
+`max_concurrent_runs`, `browser_mode`, `browser_allowed_domains`, and an
+imported figure (`avatar.model`). Instructions may not name a home folder
+(`C:\Users\…`, `/Users/…`, `/home/…`), and the credential scan covers the
+whole file. Installing a template creates a new agent on the installer's own
+model with the app's default permissions; `require_approval` can only add
+confirmations, never remove them.
 
 ### Bundling skills with a plugin
 

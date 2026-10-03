@@ -38,6 +38,14 @@ MAX_SKILL_BYTES = 64 * 1024
 MAX_BUNDLED_SKILLS = 10
 MAX_DESCRIPTION_CHARS = 500
 
+# Agent templates (kind=agent). An agent's standing instructions are its own
+# AGENTS.md; the app caps them at 20 000 characters, and the cap here is the
+# same number in bytes so a template the app exported always fits.
+MAX_AGENT_INSTRUCTIONS_BYTES = 20_000
+MAX_AGENT_NAME_CHARS = 40
+MAX_AGENT_TITLE_CHARS = 120
+MAX_AGENT_CAPABILITIES = 60
+
 # Agent Plugins v1.0.0 name rules.
 NAME_RE = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$")
 GITHUB_LOGIN_RE = re.compile(r"^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$")
@@ -548,13 +556,226 @@ def validate_flavor(doc: dict, errors: Errors, path: Path) -> None:
             )
 
 
+# ---------------------------------------------------------------------------
+# kind=agent — a shareable agent template
+# ---------------------------------------------------------------------------
+#
+# An agent template is the DESIGN of one Personal Jarvis agent: its name, job
+# line, standing instructions, look, and which tools it reaches for first. It
+# is installed on a stranger's machine, so the rule that matters is what it
+# may NOT carry. Everything that names the author's machine (accounts, paths,
+# connected computers) or widens what the agent may do without asking (the
+# permission ceiling, an approval bypass, always-allow rules, a spending
+# budget, browser attach mode) is refused outright, by an allowlist: a field
+# travels because it is named below, never because it happened to exist.
+# Mirrors jarvis/society/agent_template.py in the app — change both.
+
+AGENT_TEMPLATE_SCHEMA = 1
+AGENT_KEYS = frozenset(
+    {
+        "schema",
+        "name",
+        "title",
+        "instructions",
+        "tier",
+        "effort",
+        "focus",
+        "grant_mode",
+        "grants",
+        "denies",
+        "skills",
+        "require_approval",
+        "knowledge_scope",
+        "avatar",
+    }
+)
+# Named so the error says WHY, not just "unknown field".
+AGENT_FORBIDDEN_KEYS = {
+    "account_id": "names the author's subscription seat",
+    "provider": "the installer picks their own model",
+    "model": "the installer picks their own model",
+    "workspace_dir": "a folder on the author's machine",
+    "wiki_namespace": "derived on the installing machine",
+    "computer_id": "a machine only the author has",
+    "parent_agent_id": "an id from the author's team",
+    "permission_ceiling": "a template may not raise what runs without asking",
+    "approval_mode": "a template may not switch approvals off",
+    "approval_rules": "only require_approval travels — never always_allow",
+    "always_allow": "a template may not pre-approve tools",
+    "daily_budget_usd": "the installer's own budget applies",
+    "max_concurrent_runs": "the installer's own limit applies",
+    "browser_mode": "attach mode drives the installer's own browser",
+    "browser_allowed_domains": "the installer's own browser settings apply",
+}
+AGENT_TIERS = ("specialist", "orchestrator")
+AGENT_GRANT_MODES = ("all", "allowlist")
+AGENT_KNOWLEDGE_SCOPES = ("shared", "own")
+AGENT_EFFORT_RE = re.compile(r"^[a-z]{0,16}$")
+# Roster rule: 1-40 chars, none of / \ : @ # < > " ' ` and no control chars.
+AGENT_NAME_RE = re.compile(r"^[^/\\:@#<>\"'`\x00-\x1f]{1,40}$")
+# Capability ids as the app writes them: plugin:gmail, core:browser,
+# skill:daily-brief, plugin:gmail:send …
+CAPABILITY_ID_RE = re.compile(r"^[a-z]+:[A-Za-z0-9_.:-]{1,80}$")
+SKILL_SLUG_RE = re.compile(r"^[A-Za-z0-9_.-]{1,80}$")
+# The figure recipe: catalog ids and colours only. `model` (an imported GLB)
+# is a URL on the author's machine and never travels.
+AVATAR_STRING_KEYS = ("archetype", "base", "style", "hairStyle", "outfit", "eyewear")
+AVATAR_KEYS = frozenset(
+    {"contract", "parts", "palette", "heightM", "companion", "inner", *AVATAR_STRING_KEYS}
+)
+AVATAR_ID_RE = re.compile(r"^[a-z0-9_-]{1,40}$")
+HEX_COLOUR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+COMPANION_KEYS = frozenset({"shape", "color", "eyes", "enabled", "sizeM", "followDistanceM"})
+# A home folder in instructions is the author's machine talking — and usually
+# their real name. Credentials are caught by SECRET_PATTERNS on the raw file.
+HOME_PATH_RE = re.compile(
+    r"(?:\b[A-Za-z]:[\\/]+Users[\\/]+[^\\/\s]+|/Users/[^/\s]+|/home/[^/\s]+)",
+    re.IGNORECASE,
+)
+
+
+def _string_list(value, where: str, errors: Errors, path: Path, pattern) -> None:
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        errors.add(path, f"{where} must be a list of strings")
+        return
+    if len(value) > MAX_AGENT_CAPABILITIES:
+        errors.add(path, f"{where}: at most {MAX_AGENT_CAPABILITIES} entries")
+    for item in value:
+        if not pattern.fullmatch(item):
+            errors.add(path, f"{where}: {item[:40]!r} is not a valid id")
+
+
+def _id_map(value, values_re) -> bool:
+    return (
+        isinstance(value, dict)
+        and len(value) <= 32
+        and all(
+            isinstance(k, str)
+            and AVATAR_ID_RE.fullmatch(k)
+            and isinstance(v, str)
+            and values_re.fullmatch(v)
+            for k, v in value.items()
+        )
+    )
+
+
+def validate_avatar(avatar, errors: Errors, path: Path) -> None:
+    if not isinstance(avatar, dict):
+        errors.add(path, "agent.avatar must be an object")
+        return
+    for key in avatar:
+        if key not in AVATAR_KEYS:
+            errors.add(path, f"agent.avatar.{key} may not be published (catalog look only)")
+    for key in AVATAR_STRING_KEYS:
+        value = avatar.get(key)
+        if value is not None and (not isinstance(value, str) or not AVATAR_ID_RE.fullmatch(value)):
+            errors.add(path, f"agent.avatar.{key} must be a catalog id")
+    if "contract" in avatar and avatar["contract"] != 1:
+        errors.add(path, "agent.avatar.contract must be 1")
+    if "parts" in avatar and not _id_map(avatar["parts"], AVATAR_ID_RE):
+        errors.add(path, "agent.avatar.parts must map slot ids to part ids")
+    if "palette" in avatar and not _id_map(avatar["palette"], HEX_COLOUR_RE):
+        errors.add(path, "agent.avatar.palette must map cell names to #rrggbb colours")
+    inner = avatar.get("inner")
+    if inner is not None and (not isinstance(inner, str) or not HEX_COLOUR_RE.fullmatch(inner)):
+        errors.add(path, "agent.avatar.inner must be a #rrggbb colour")
+    height = avatar.get("heightM")
+    if height is not None and (
+        isinstance(height, bool) or not isinstance(height, (int, float)) or not 0.2 <= height <= 4
+    ):
+        errors.add(path, "agent.avatar.heightM must be a number between 0.2 and 4")
+    companion = avatar.get("companion")
+    if companion is not None:
+        if not isinstance(companion, dict) or any(k not in COMPANION_KEYS for k in companion):
+            errors.add(path, "agent.avatar.companion carries unknown fields")
+        elif "color" in companion and not (
+            isinstance(companion["color"], str) and HEX_COLOUR_RE.fullmatch(companion["color"])
+        ):
+            errors.add(path, "agent.avatar.companion.color must be a #rrggbb colour")
+
+
+def validate_agent(doc: dict, name: str, errors: Errors, path: Path) -> None:
+    title = doc.get("title")
+    if not isinstance(title, str) or not title.strip():
+        errors.add(path, "title is required for kind=agent")
+    description = doc.get("description")
+    if not isinstance(description, str) or not description.strip():
+        errors.add(path, "description is required for kind=agent")
+    elif len(description) > MAX_DESCRIPTION_CHARS:
+        errors.add(path, f"description longer than {MAX_DESCRIPTION_CHARS} chars")
+    categories = doc.get("categories", [])
+    if not isinstance(categories, list) or not all(isinstance(c, str) for c in categories):
+        errors.add(path, "categories must be a list of strings")
+
+    agent = doc.get("agent")
+    if not isinstance(agent, dict):
+        errors.add(path, "agent (object) is required for kind=agent")
+        return
+    for key in agent:
+        if key in AGENT_FORBIDDEN_KEYS:
+            errors.add(path, f"agent.{key} may not be published — {AGENT_FORBIDDEN_KEYS[key]}")
+        elif key not in AGENT_KEYS:
+            errors.add(path, f"agent.{key} is not a template field")
+    if agent.get("schema") != AGENT_TEMPLATE_SCHEMA:
+        errors.add(path, f"agent.schema must be {AGENT_TEMPLATE_SCHEMA}")
+
+    agent_name = agent.get("name")
+    if not isinstance(agent_name, str) or not AGENT_NAME_RE.fullmatch(agent_name.strip() or "/"):
+        errors.add(
+            path,
+            f"agent.name must be 1-{MAX_AGENT_NAME_CHARS} characters without "
+            "/ \\ : @ # < > or quotes",
+        )
+    elif agent_name.strip().lower() == "jarvis":
+        errors.add(path, "agent.name 'Jarvis' is the lead every install already has")
+    agent_title = agent.get("title", "")
+    if not isinstance(agent_title, str) or len(agent_title) > MAX_AGENT_TITLE_CHARS:
+        errors.add(path, f"agent.title must be a string of at most {MAX_AGENT_TITLE_CHARS} chars")
+    instructions = agent.get("instructions")
+    if not isinstance(instructions, str) or not instructions.strip():
+        errors.add(path, "agent.instructions (the standing instructions) are required")
+    else:
+        if len(instructions.encode("utf-8")) > MAX_AGENT_INSTRUCTIONS_BYTES:
+            errors.add(
+                path, f"agent.instructions larger than {MAX_AGENT_INSTRUCTIONS_BYTES} bytes"
+            )
+        home = HOME_PATH_RE.search(instructions)
+        if home:
+            errors.add(
+                path,
+                f"agent.instructions name a folder on your machine ({home.group(0)!r}) "
+                "— describe it instead",
+            )
+
+    if agent.get("tier", "specialist") not in AGENT_TIERS:
+        errors.add(path, f"agent.tier must be one of {list(AGENT_TIERS)}")
+    if agent.get("grant_mode", "all") not in AGENT_GRANT_MODES:
+        errors.add(path, f"agent.grant_mode must be one of {list(AGENT_GRANT_MODES)}")
+    if agent.get("knowledge_scope", "shared") not in AGENT_KNOWLEDGE_SCOPES:
+        errors.add(path, f"agent.knowledge_scope must be one of {list(AGENT_KNOWLEDGE_SCOPES)}")
+    effort = agent.get("effort", "")
+    if not isinstance(effort, str) or not AGENT_EFFORT_RE.fullmatch(effort):
+        errors.add(path, "agent.effort must be a short lowercase word or empty")
+    for key in ("focus", "grants", "denies", "require_approval"):
+        if key in agent:
+            _string_list(agent[key], f"agent.{key}", errors, path, CAPABILITY_ID_RE)
+    if agent.get("skills") is not None:
+        _string_list(agent["skills"], "agent.skills", errors, path, SKILL_SLUG_RE)
+    if "avatar" in agent:
+        validate_avatar(agent["avatar"], errors, path)
+    reject_http_urls(doc, "submission", errors, path)
+
+
 def read_base_version(path: Path, base_ref: str) -> dict | None:
     """The submission as it exists at base_ref, or None when new."""
     rel = path.resolve().relative_to(ROOT).as_posix()
     proc = subprocess.run(
         ["git", "show", f"{base_ref}:{rel}"],
         capture_output=True,
+        # Submissions are UTF-8; the runner's locale (cp1252 on Windows) is not.
         text=True,
+        encoding="utf-8",
+        errors="replace",
         cwd=ROOT,
     )
     if proc.returncode != 0:
@@ -608,8 +829,8 @@ def validate_file(path: Path, errors: Errors, base_ref: str | None) -> None:
     if path.name != f"{name}.json":
         errors.add(path, f"file must be named {name}.json")
     kind = doc.get("kind")
-    if kind not in ("plugin", "skill"):
-        errors.add(path, "kind must be 'plugin' or 'skill'")
+    if kind not in ("plugin", "skill", "agent"):
+        errors.add(path, "kind must be 'plugin', 'skill' or 'agent'")
         return
     if kind == "plugin" and name in RESERVED_PLUGIN_IDS:
         errors.add(path, f"{name!r} is a built-in Personal Jarvis plugin id — reserved")
@@ -628,6 +849,8 @@ def validate_file(path: Path, errors: Errors, base_ref: str | None) -> None:
 
     if kind == "plugin":
         validate_plugin(doc, name, errors, path)
+    elif kind == "agent":
+        validate_agent(doc, name, errors, path)
     else:
         validate_skill(doc, name, errors, path)
 
@@ -659,6 +882,11 @@ def validate_file(path: Path, errors: Errors, base_ref: str | None) -> None:
                     )
             elif base.get("publisher") != publisher:
                 errors.add(path, "publisher may not change on an update (ownership rule)")
+            if base.get("kind") != kind:
+                errors.add(
+                    path,
+                    f"kind may not change on an update (this name is a {base.get('kind')!r})",
+                )
             base_version = str(base.get("version", "0.0.0"))
             base_ok = SEMVER_RE.fullmatch(base_version)
             if base_ok and version_tuple(version) <= version_tuple(base_version):

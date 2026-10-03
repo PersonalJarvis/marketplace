@@ -1,0 +1,22 @@
+name: Publish to the marketplace
+description: Publish an agent template, a skill or a plugin — no fork or pull request needed.
+title: "[publish] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Paste one submission as JSON. The easiest way to get it is the app:
+        **Share** on an agent exports it for you.
+
+        Your GitHub account becomes the publisher — whatever the JSON says about
+        `publisher` is replaced by you. The automated checks run as soon as you
+        submit; if they find a problem they say what to change, and editing this
+        issue runs them again. Nothing waits for a human.
+  - type: textarea
+    id: submission
+    attributes:
+      label: Submission
+      description: The submission JSON (see the README for the format).
+      render: json
+    validations:
+      required: true

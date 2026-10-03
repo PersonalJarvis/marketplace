@@ -35,7 +35,8 @@ jobs:
         run: |
           git config user.name "marketplace-bot"
           git config user.email "actions@github.com"
-          git add plugins skills registry.json
+          mkdir -p agents
+          git add plugins skills agents registry.json
           if ! git diff --cached --quiet; then
             git commit -m "chore(registry): expand submissions [bot]"
             git push
